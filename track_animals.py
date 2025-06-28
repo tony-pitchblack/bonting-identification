@@ -84,26 +84,31 @@ def process_video(
     print(f"Mode: {mode}, Tracker: {tracker_name}")
 
     # ------------------------------------------------------------------ model
-    model_file = "yolo11m.pt" if mode == "detect" else "yolo11m-seg.pt"
     ckpt_dir = Path("ckpt")
     ckpt_dir.mkdir(exist_ok=True)
+
+    model_file = "yolo11m.pt" if mode == "detect" else "yolo11m-seg.pt"
     local_weights = ckpt_dir / model_file
 
     if local_weights.exists():
         print(f"Loading YOLO model from local weights: {local_weights} ...")
         model = YOLO(str(local_weights))
     else:
-        print(f"Local weights not found. Downloading {model_file} to {ckpt_dir} ...")
+        print(f"Downloading {model_file} to {ckpt_dir} ...")
+        # Download to a temp location first
         model = YOLO(model_file)
-        # Attempt to copy downloaded weights to ckpt dir for future runs
-        try:
-            # `model.ckpt_path` exists on recent ultralytics versions
-            w_src = Path(getattr(model, "ckpt_path", ""))
-            if w_src.is_file():
-                shutil.copy(w_src, local_weights)
-                print(f"Saved weights to {local_weights}")
-        except Exception as e:
-            print(f"Warning: could not cache weights to {ckpt_dir}: {e}")
+        # Get the downloaded weights path and move to our ckpt dir
+        src_path = Path(model.ckpt_path)
+        if src_path.exists():
+            shutil.copy2(src_path, local_weights)
+            print(f"Moved weights to {local_weights}")
+            # Delete the source file to save space
+            src_path.unlink()
+            print(f"Deleted source weights at {src_path}")
+            # Reload model with the moved weights
+            model = YOLO(str(local_weights))
+        else:
+            print(f"Warning: Could not find downloaded weights at {src_path}")
 
     print("Model loaded.")
 
