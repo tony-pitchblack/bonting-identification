@@ -22,11 +22,14 @@ if [ -z "$HF_TOKEN" ] || [ -z "$HF_REPO_ID" ]; then
     exit 1
 fi
 
-# Check if videos directory exists
-if [ ! -d "../videos" ]; then
-    echo "Error: videos directory not found"
-    exit 1
-fi
+# Create videos directory if it doesn't exist
+mkdir -p "../videos"
 
-# Upload videos directory
-huggingface-cli upload "$HF_REPO_ID" "../videos/" --token "$HF_TOKEN" --repo-type dataset
+# Download videos directory
+echo "Downloading videos from $HF_REPO_ID..."
+huggingface-cli download "$HF_REPO_ID" \
+    --repo-type dataset \
+    --local-dir "../videos" \
+    --token "$HF_TOKEN"
+
+echo "Videos downloaded successfully to ../videos/" 
