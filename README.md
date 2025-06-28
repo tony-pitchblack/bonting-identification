@@ -1,54 +1,85 @@
-# Video Demo Management System
+# Video Demo & Tracking Management System
 
-A system for managing, downloading, and uploading video demos to Hugging Face repositories.
+A streamlined workflow for downloading source videos, running object-tracking, and syncing all data with your Hugging Face dataset repository.
 
 ## Project Structure
 
-```
+```text
 .
-├── README.md              # This file - general project info
-├── .env                   # Environment variables (HF credentials)
-├── cookies.txt           # YouTube cookies for video downloads
-├── videos/               # Video storage directory
-│   └── source/          # Downloaded source videos
-└── make-bonting-exp/     # Scripts and instructions for video demo creation
-    ├── README.md        # Detailed instructions for video demo creation
-    ├── download_video_from_yt.sh
-    └── upload_videos_to_hf.sh
+├── README.md              # This file – general project info
+├── .env                   # HF_TOKEN and HF_REPO_ID credentials
+├── cookies.txt            # YouTube cookies (optional)
+├── ckpt/                  # Cached YOLO weights (created automatically)
+├── data/                  # All project data
+│   ├── source_videos/     # Input videos grouped by themed folders
+│   └── tracking_videos/   # Tracking results (auto-generated)
+├── track_animals.py       # Runs YOLO + tracker and writes results into data/tracking_videos/
+└── manage_data/           # Helper scripts for HF sync
+    ├── README.md
+    ├── download_data_from_hf.sh
+    └── upload_data_to_hf.sh
 ```
 
 ## Installation
 
-1. Set up micromamba environment:
-   ```bash
-   # Create environment
-   micromamba create -n bonting-exp python=3.10
-   
-   # Activate environment
-   micromamba activate bonting-exp
-   
-   # Install required packages
-   micromamba install -c conda-forge yt-dlp
-   pip install huggingface-hub
-   ```
+1. Create and activate the environment
 
-2. Configure environment:
-   Create `.env` file in the project root with your Hugging Face credentials:
-   ```
-   HF_TOKEN=your_huggingface_token
-   HF_REPO_ID=your_username/your_repo_name
-   ```
+```bash
+micromamba create -n bonting-exp python=3.10 -y
+micromamba activate bonting-exp
+```
 
-3. Set up YouTube access (if needed):
-   Place your `cookies.txt` file in the project root for YouTube video downloads.
+2. Install dependencies
+
+```bash
+micromamba install -c conda-forge yt-dlp ffmpeg -y  # optional, only for YouTube/FFmpeg helpers
+pip install ultralytics pandas tqdm opencv-python huggingface-hub
+```
+
+3. Configure credentials
+
+Create `.env` in the project root:
+
+```text
+HF_TOKEN=your_huggingface_token
+HF_REPO_ID=your_username/your_repo_name
+```
+
+If you need YouTube downloads, place a valid `cookies.txt` in the project root.
 
 ## Features
 
-- Download videos from YouTube with proper cookie handling
-- Upload videos to Hugging Face repositories
-- Organized video storage structure
-- Environment-managed dependencies
+* Download / upload the entire `data/` folder with `manage_data/{download,upload}_data_from_hf.sh`.
+* Run multi-object tracking on any video (YOLOv8 + ByteTrack or BoTSORT) with `track_animals.py`.
+* Results are written directly to `data/tracking_videos/…` and include:
+  * `tracking_video.mp4` – annotated clip
+  * `tracking_timestamps.csv` – per-ID visibility intervals
+* YOLO weights are cached under `ckpt/` to avoid re-downloads.
+* Temporary Ultralytics `runs/` folders are cleaned up automatically after each run.
 
-## Usage
+## Basic Usage
 
-For detailed instructions on creating and managing video demos, see [make-bonting-exp/README.md](make-bonting-exp/README.md). 
+1. Sync data from Hugging Face (optional):
+
+```bash
+cd manage_data
+./download_data_from_hf.sh
+```
+
+2. Track animals in a folder of videos:
+
+```bash
+python track_animals.py \
+    --input data/source_videos/youtube_segments/ \
+    --mode detect \
+    --tracker botsort
+```
+
+3. Upload updated data back to Hugging Face:
+
+```bash
+cd manage_data
+./upload_data_to_hf.sh
+```
+
+For script-specific details see `manage_data/README.md`. 

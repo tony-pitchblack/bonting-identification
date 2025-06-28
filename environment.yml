@@ -2,6 +2,14 @@ name: bonting-exp
 channels:
   - conda-forge
 dependencies:
-  - huggingface_hub[hf_xet,cli]
-  - python
-  - yt-dlp
+  - python=3.11
+  - pandas
+  - tqdm
+  - pip
+  - pip:
+    - torch
+    - torchvision
+    - ultralytics>=8.2.0
+    - opencv-python-headless
+    - yt-dlp
+    - huggingface_hub[hf_xet,cli]

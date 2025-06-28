@@ -1,6 +1,8 @@
 # Repo folders & files
-videos
 cookies.txt
+data/
+manage_data/
+ckpt/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
