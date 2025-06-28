@@ -5,3 +5,7 @@ dependencies:
   - huggingface_hub[hf_xet,cli]
   - python
   - yt-dlp
+  - ipykernel
+  - ipywidgets
+  - opencv
+  - streamlit
