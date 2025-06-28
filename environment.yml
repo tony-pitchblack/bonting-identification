@@ -5,7 +5,8 @@ dependencies:
   - python=3.11
   - pandas
   - tqdm
-  - pip
+  - streamlit
+  - opencv
   - pip:
     - torch
     - torchvision
