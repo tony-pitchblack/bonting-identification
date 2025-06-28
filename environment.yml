@@ -1,0 +1,7 @@
+name: bonting-exp
+channels:
+  - conda-forge
+dependencies:
+  - huggingface_hub
+  - python
+  - yt-dlp
