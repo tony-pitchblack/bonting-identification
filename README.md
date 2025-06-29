@@ -33,7 +33,7 @@ micromamba activate bonting-exp
 
 ```bash
 micromamba install -c conda-forge yt-dlp ffmpeg -y  # optional, only for YouTube/FFmpeg helpers
-pip install ultralytics pandas tqdm opencv-python huggingface-hub
+pip install ultralytics pandas tqdm opencv-python streamlit huggingface-hub
 ```
 
 3. Configure credentials
@@ -82,4 +82,15 @@ cd manage_data
 ./upload_data_to_hf.sh
 ```
 
-For script-specific details see `manage_data/README.md`. 
+For script-specific details see `manage_data/README.md`.
+
+## Interactive Video Demo
+
+After tracking videos are present under `data/tracking_videos/`, launch the Streamlit viewer:
+
+```bash
+micromamba activate bonting-exp  # ensure the env is active
+streamlit run video_demo.py
+```
+
+Select a run from the dropdown to watch the annotated clip and jump to visibility segments. 
