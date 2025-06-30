@@ -3,7 +3,9 @@ cookies.txt
 data/
 manage_data/
 ckpt/
-runs/ # temporary files when script is working
+runs/
+
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
