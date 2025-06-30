@@ -81,9 +81,10 @@ def main() -> None:
                 return
             yaml_path = _resolve_yaml(d)
 
-    # -------------------------------------------------------------- weights
-    ckpt_dir = Path("ckpt")
-    ckpt_dir.mkdir(exist_ok=True)
+    # -------------------------------------------------------------- weights (always under <script>/ckpt)
+    script_dir = Path(__file__).resolve().parent
+    ckpt_dir = script_dir / "ckpt"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     model_file = "yolov8n.pt"
     local_weights = ckpt_dir / model_file

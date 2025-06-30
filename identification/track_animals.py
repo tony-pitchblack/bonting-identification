@@ -84,8 +84,10 @@ def process_video(
     print(f"Mode: {mode}, Tracker: {tracker_name}")
 
     # ------------------------------------------------------------------ model
-    ckpt_dir = Path("ckpt")
-    ckpt_dir.mkdir(exist_ok=True)
+    # We store model checkpoints next to this script so they are reused
+    script_dir = Path(__file__).resolve().parent
+    ckpt_dir = script_dir / "ckpt"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     model_file = "yolo11m.pt" if mode == "detect" else "yolo11m-seg.pt"
     local_weights = ckpt_dir / model_file
