@@ -37,6 +37,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--batch", type=int, default=16)
     p.add_argument("--device", type=str, default="cpu")
     p.add_argument("--workers", type=int, default=2, help="Data loader workers")
+    p.add_argument(
+        "--fraction",
+        type=float,
+        help="Fraction of the training dataset to use (0.0 < f ≤ 1.0)",
+    )
     return p.parse_args()
 
 
@@ -111,8 +116,15 @@ def main() -> None:
         else:
             print(f"Warning: Could not find downloaded weights at {src_path}")
 
-    model.train(data=str(yaml_path), epochs=args.epochs, imgsz=640, batch=args.batch,
-                device=args.device, workers=args.workers)
+    model.train(
+        data=str(yaml_path),
+        epochs=args.epochs,
+        imgsz=640,
+        batch=args.batch,
+        device=args.device,
+        workers=args.workers,
+        fraction=args.fraction if args.fraction else 1.0,
+    )
 
 
 if __name__ == "__main__":
