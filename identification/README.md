@@ -25,15 +25,7 @@ A streamlined workflow for downloading source videos, running object-tracking, a
 1. Create and activate the environment
 
 ```bash
-micromamba create -n bonting-exp python=3.10 -y
-micromamba activate bonting-exp
-```
-
-2. Install dependencies
-
-```bash
-micromamba install -c conda-forge yt-dlp ffmpeg -y  # optional, only for YouTube/FFmpeg helpers
-pip install ultralytics pandas tqdm opencv-python streamlit huggingface-hub
+micromamba create -f environment.yml
 ```
 
 3. Configure credentials
