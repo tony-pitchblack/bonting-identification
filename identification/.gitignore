@@ -1,6 +1,9 @@
 # Repo folders & files
-videos
 cookies.txt
+data/
+manage_data/
+ckpt/
+runs/ # temporary files when script is working
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
