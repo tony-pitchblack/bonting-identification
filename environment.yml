@@ -14,3 +14,5 @@ dependencies:
       - yt-dlp
       - huggingface_hub[hf_xet,cli]
       - kagglehub
+      - pillow
+      - transformers
