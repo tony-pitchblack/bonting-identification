@@ -16,3 +16,5 @@ dependencies:
       - kagglehub
       - "mlflow[databricks]>=3.1"
       - python-dotenv
+      - pillow
+      - transformers
