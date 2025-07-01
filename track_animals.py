@@ -85,8 +85,7 @@ def process_video(
 
     # ------------------------------------------------------------------ model
     # We store model checkpoints next to this script so they are reused
-    script_dir = Path(__file__).resolve().parent
-    ckpt_dir = script_dir / "ckpt"
+    ckpt_dir = Path("ckpt")  # relative to where the script is launched
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     model_file = "yolo11m.pt" if mode == "detect" else "yolo11m-seg.pt"

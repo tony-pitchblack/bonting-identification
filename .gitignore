@@ -5,6 +5,8 @@ manage_data/
 ckpt/
 runs/
 tmp/
+mlruns/
+mlartifacts/
 
 .vscode
 

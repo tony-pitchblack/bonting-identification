@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -43,6 +44,8 @@ def maketmpset() -> Path:
 
 def main() -> None:
     yaml_path = maketmpset()
+    
+    # Default arguments
     cmd = [
         "python",
         str(THIS_DIR / "train_yolo_ear_tags.py"),
@@ -57,6 +60,12 @@ def main() -> None:
         "--workers",
         "0",
     ]
+    
+    # Allow overriding any arguments from command line
+    # Skip first argument (script name)
+    if len(sys.argv) > 1:
+        cmd.extend(sys.argv[1:])
+    
     print("Running:", " ".join(cmd))
     subprocess.run(cmd, check=True)
 
