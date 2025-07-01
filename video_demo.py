@@ -7,14 +7,27 @@ import streamlit.components.v1 as components
 
 st.title("Cattle‐Visibility Segments")
 
-# Directory that contains all tracking runs
-tracking_root = Path(__file__).parent / "data" / "tracking_videos"
+# Base directory that contains all processed videos (tracking, identification, ...)
+processed_root = Path(__file__).parent / "data" / "HF_dataset" / "processed_videos"
+
+# Let the user choose which processed subfolder to browse (e.g. "tracking", "identification")
+subfolders = [d for d in processed_root.iterdir() if d.is_dir()]
+if not subfolders:
+    st.error("No subfolders found under data/HF_dataset/processed_videos.")
+    st.stop()
+
+selected_folder: Path = st.selectbox(
+    "Select processed data type", subfolders, format_func=lambda p: p.name
+)
+
+# Directory that contains runs for the chosen type
+tracking_root = selected_folder
 
 # Find every produced tracking video
-video_paths = sorted(tracking_root.rglob("tracking_video.mp4"))
+video_paths = sorted(tracking_root.rglob("processed_video.mp4"))
 
 if not video_paths:
-    st.error("No tracking videos found under data/HF_dataset/tracking_videos.")
+    st.error("No tracking videos found under data/HF_dataset/processed_videos/tracking.")
     st.stop()
 
 # Let the user pick which video to inspect

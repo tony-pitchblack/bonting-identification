@@ -48,7 +48,7 @@ def main() -> None:
     # Default arguments
     cmd = [
         "python",
-        str(THIS_DIR / "train_yolo_ear_tags.py"),
+        str(THIS_DIR / "train_identification_yolo.py"),
         "--data",
         str(yaml_path),
         "--epochs",

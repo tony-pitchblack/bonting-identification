@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Run track_identify_animals with a tiny dummy video."""
+"""Run run_identification.py with a tiny dummy video."""
 from __future__ import annotations
 
 import subprocess
@@ -12,19 +12,36 @@ TMP_VIDEO = THIS_DIR / "_dummy_vid.mp4"
 
 
 def make_dummy_video(path: Path) -> None:
+    cap = cv2.VideoCapture(str(path))
+    ret, frame = cap.read()
+    if not ret:
+        raise RuntimeError(f"Cannot read first frame from {path}")
+
+    h, w = frame.shape[:2]
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    writer = cv2.VideoWriter(str(path), fourcc, 5.0, (320, 240))
+    writer = cv2.VideoWriter(str(path), fourcc, 5.0, (w, h), True)
+    if not writer.isOpened():
+        raise RuntimeError("Could not open VideoWriter")
+
+    cv2.putText(frame, "dummy", (5, 15),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+    writer.write(frame)
+
     for _ in range(3):
-        img = np.zeros((240, 320, 3), dtype=np.uint8)
-        writer.write(img)
+        ret, frame = cap.read()
+        if not ret:
+            break
+        writer.write(frame)
+
     writer.release()
+    cap.release()
 
 
 def main() -> None:
     make_dummy_video(TMP_VIDEO)
     cmd = [
         "python",
-        str(THIS_DIR / "track_identify_animals.py"),
+        str(THIS_DIR / "run_identification.py"),
         "--input",
         str(TMP_VIDEO),
         "--yolo-ckpt",

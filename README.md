@@ -44,7 +44,7 @@ If you need YouTube downloads, place a valid `cookies.txt` in the project root.
 * Download / upload the entire `data/HF_dataset/` folder with `manage_data/{download,upload}_data_from_hf.sh`.
 * Run multi-object tracking on any video (YOLOv8 + ByteTrack or BoTSORT) with `track_animals.py`.
 * Results are written directly to `data/HF_dataset/tracking_videos/…` and include:
-  * `tracking_video.mp4` – annotated clip
+  * `processed_video.mp4` – annotated clip
   * `tracking_timestamps.csv` – per-ID visibility intervals
 * YOLO weights are cached under `ckpt/` to avoid re-downloads.
 * Temporary Ultralytics `runs/` folders are cleaned up automatically after each run.

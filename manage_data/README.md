@@ -16,7 +16,7 @@ data/
       video_name/          # Results for specific video
         timestamp_model_tracker/
           tracking_timestamps.csv
-          tracking_video.mp4
+          processed_video.mp4
 ```
 
 ## Prerequisites

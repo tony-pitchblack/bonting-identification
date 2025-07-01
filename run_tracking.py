@@ -78,7 +78,7 @@ def process_video(
     mode: str,
     tracker_name: str,
     duration_s: float | None = None,  # process only first N seconds if provided
-    out_root: Path = Path("data/HF_dataset/tracking_videos"),
+    out_root: Path = Path("data/HF_dataset/processed_videos/tracking"),
 ) -> None:
     print(f"\nProcessing video: {video_path.name}")
     print(f"Mode: {mode}, Tracker: {tracker_name}")
@@ -173,7 +173,7 @@ def process_video(
     
     # Determine the folder structure based on the input video path
     # If video is at data/HF_dataset/source_videos/youtube_segments/video.webm
-    # Output should be at data/HF_dataset/tracking_videos/youtube_segments/video/{timestamp}/
+    # Output will be at data/HF_dataset/processed_videos/tracking/youtube_segments/video/{timestamp}/
     video_abs_path = video_path.resolve()
     
     # Try to determine the category folder from the path
@@ -203,7 +203,7 @@ def process_video(
         video_files = list(runs_track.glob("*.mp4")) + list(runs_track.glob("*.avi")) + list(runs_track.glob("*.webm"))
         if video_files:
             ann_video = video_files[0]  # take first
-            dest_video = out_dir / "tracking_video.mp4"
+            dest_video = out_dir / "processed_video.mp4"
             if ann_video.suffix.lower() == ".mp4":
                 shutil.move(str(ann_video), dest_video)
             else:

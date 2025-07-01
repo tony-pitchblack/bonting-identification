@@ -64,7 +64,8 @@ def process_video(
     trocr_ckpt: str,
     det_obj_name: str,
     duration_s: float | None = None,
-    out_root: Path = Path("data/tracking_videos"),
+    n_debug_images: int = 0,
+    out_root: Path = Path("data/HF_dataset/processed_videos/identification"),
     dry_run: bool = False,
 ) -> None:
     print(f"\nProcessing video: {video_path.name}")
@@ -126,7 +127,7 @@ def process_video(
             category_folder = video_abs.parts[idx + 1]
     out_dir = out_root / category_folder / video_path.stem / f"{time_tag}_tracker={tracker_name}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_video_path = out_dir / "tracking_video.mp4"
+    out_video_path = out_dir / "processed_video.mp4"
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(str(out_video_path), fourcc, fps if fps > 0 else 30, (width, height))
@@ -165,6 +166,11 @@ def process_video(
 
     obj_key = det_obj_name.lower().replace("-", "").replace("_", "").replace(" ", "")
 
+    # prepare debug directory if requested
+    if n_debug_images > 0:
+        dbg_dir = Path("tmp/debug_trocr") / video_path.stem
+        dbg_dir.mkdir(parents=True, exist_ok=True)
+
     for r in tqdm(results, total=max_frames, desc=f"Tracking {video_path.stem}"):
         frame_i += 1
         if duration_s is not None and frame_i >= max_frames:
@@ -175,8 +181,16 @@ def process_video(
         cows: List[Tuple[List[float], int]] = []
         tag_boxes: List[List[float]] = []
 
-        ids = None if r.boxes.id is None else r.boxes.id.cpu().numpy().astype(int)
-        for box, cls_id, obj_id in zip(r.boxes.xyxy.cpu().numpy(), r.boxes.cls.cpu().numpy().astype(int), ids or []):
+        ids_list = (
+            []
+            if r.boxes.id is None
+            else r.boxes.id.cpu().numpy().astype(int).tolist()
+        )
+        for box, cls_id, obj_id in zip(
+            r.boxes.xyxy.cpu().numpy(),
+            r.boxes.cls.cpu().numpy().astype(int),
+            ids_list,
+        ):
             name = model.names[int(cls_id)]
             label_norm = name.lower().replace("-", "").replace("_", "").replace(" ", "")
             if "cow" in name.lower():
@@ -212,6 +226,11 @@ def process_video(
                 )
         writer.write(annotated)
 
+        # ------------------------------------------------------ debug logging
+        if n_debug_images > 0 and frame_i % n_debug_images == 0:
+            dbg_path = dbg_dir / f"frame_{frame_i:06d}.jpg"
+            cv2.imwrite(str(dbg_path), annotated)
+
     writer.release()
 
     timestamps_df = _slice_segments(id_frames, fps)
@@ -235,6 +254,7 @@ def cli() -> None:
     p.add_argument("--trocr", default="microsoft/trocr-base-handwritten", help="TrOCR model checkpoint")
     p.add_argument("--duration", type=float, help="Process only first N seconds of each video")
     p.add_argument("--det-obj-name", default="ear-tag", help="Name of object class for tags")
+    p.add_argument("--n_debug_images", type=int, default=0, help="Save every Nth annotated frame for debugging TrOCR processing (0 = disabled)")
     p.add_argument("--dry-run", action="store_true", help="Skip model loading for tests")
     args = p.parse_args()
 
@@ -243,7 +263,16 @@ def cli() -> None:
         raise SystemExit("No video files found")
 
     for vid in videos:
-        process_video(vid, args.tracker, args.yolo_ckpt, args.trocr, args.det_obj_name, args.duration, dry_run=args.dry_run)
+        process_video(
+            vid,
+            args.tracker,
+            args.yolo_ckpt,
+            args.trocr,
+            args.det_obj_name,
+            args.duration,
+            n_debug_images=args.n_debug_images,
+            dry_run=args.dry_run,
+        )
 
 
 if __name__ == "__main__":
