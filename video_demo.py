@@ -14,7 +14,7 @@ tracking_root = Path(__file__).parent / "data" / "tracking_videos"
 video_paths = sorted(tracking_root.rglob("tracking_video.mp4"))
 
 if not video_paths:
-    st.error("No tracking videos found under data/tracking_videos.")
+    st.error("No tracking videos found under data/HF_dataset/tracking_videos.")
     st.stop()
 
 # Let the user pick which video to inspect

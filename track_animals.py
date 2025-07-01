@@ -78,7 +78,7 @@ def process_video(
     mode: str,
     tracker_name: str,
     duration_s: float | None = None,  # process only first N seconds if provided
-    out_root: Path = Path("data/tracking_videos"),
+    out_root: Path = Path("data/HF_dataset/tracking_videos"),
 ) -> None:
     print(f"\nProcessing video: {video_path.name}")
     print(f"Mode: {mode}, Tracker: {tracker_name}")
@@ -172,8 +172,8 @@ def process_video(
     time_tag = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
     # Determine the folder structure based on the input video path
-    # If video is at data/source_videos/youtube_segments/video.webm
-    # Output should be at data/tracking_videos/youtube_segments/video/{timestamp}/
+    # If video is at data/HF_dataset/source_videos/youtube_segments/video.webm
+    # Output should be at data/HF_dataset/tracking_videos/youtube_segments/video/{timestamp}/
     video_abs_path = video_path.resolve()
     
     # Try to determine the category folder from the path
