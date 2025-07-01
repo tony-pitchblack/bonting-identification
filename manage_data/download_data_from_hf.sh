@@ -27,13 +27,13 @@ if [ -z "$HF_TOKEN" ] || [ -z "$HF_REPO_ID" ]; then
 fi
 
 # Create data directory if it doesn't exist
-mkdir -p "../data"
+mkdir -p "../data/HF_dataset"
 
 # Download data directory
 echo "Downloading data from $HF_REPO_ID..."
 huggingface-cli download "$HF_REPO_ID" \
     --repo-type dataset \
-    --local-dir "../data" \
+    --local-dir "../data/HF_dataset" \
     --token "$HF_TOKEN"
 
-echo "Data downloaded successfully to ../data/" 
+echo "Data downloaded successfully to ../data/HF_dataset/" 

@@ -12,6 +12,6 @@ if [[ "${CONDA_DEFAULT_ENV}" != "bonting-id" ]]; then
 fi
 
 # Create directories if they don't exist
-mkdir -p "../data/source_videos/youtube_full"
+mkdir -p "../data/HF_dataset/source_videos/youtube_full"
 
-yt-dlp --cookies ../cookies.txt -P ../data/source_videos/youtube_full/ https://www.youtube.com/watch?v=9sWtw_EtHKI
+yt-dlp --cookies ../cookies.txt -P ../data/HF_dataset/source_videos/youtube_full/ https://www.youtube.com/watch?v=9sWtw_EtHKI
