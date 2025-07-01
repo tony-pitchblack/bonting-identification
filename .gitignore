@@ -4,6 +4,7 @@ data/
 manage_data/
 ckpt/
 runs/
+tmp/
 
 .vscode
 

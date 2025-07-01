@@ -10,10 +10,10 @@ from PIL import Image, ImageDraw
 
 
 THIS_DIR = Path(__file__).resolve().parent
-TMP_ROOT = THIS_DIR / "_dummy_data"
+TMP_ROOT = THIS_DIR / "tmp"
 
 
-def make_dummy_dataset() -> Path:
+def maketmpset() -> Path:
     if TMP_ROOT.exists():
         shutil.rmtree(TMP_ROOT)
     (TMP_ROOT / "images/train").mkdir(parents=True)
@@ -42,7 +42,7 @@ def make_dummy_dataset() -> Path:
 
 
 def main() -> None:
-    yaml_path = make_dummy_dataset()
+    yaml_path = maketmpset()
     cmd = [
         "python",
         str(THIS_DIR / "train_yolo_ear_tags.py"),
