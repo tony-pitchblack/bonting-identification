@@ -65,35 +65,41 @@ def process_video(
     det_obj_name: str,
     duration_s: float | None = None,
     out_root: Path = Path("data/tracking_videos"),
+    dry_run: bool = False,
 ) -> None:
     print(f"\nProcessing video: {video_path.name}")
     ckpt_dir = Path("ckpt")
     ckpt_dir.mkdir(exist_ok=True)
 
-    # --------------------------------------------------------------- load yolo
-    weight_name = Path(yolo_ckpt).name
-    local_weights = ckpt_dir / weight_name
-    if Path(yolo_ckpt).exists():
-        model = YOLO(str(yolo_ckpt))
-    elif local_weights.exists():
-        model = YOLO(str(local_weights))
-    else:
-        print(f"Downloading {yolo_ckpt} to {local_weights} ...")
-        tmp_model = YOLO(yolo_ckpt)
-        src = Path(tmp_model.ckpt_path)
-        if src.exists():
-            shutil.copy2(src, local_weights)
-            src.unlink()
-        model = YOLO(str(local_weights))
-    print("YOLO model loaded")
+    if not dry_run:
+        # ------------------------------------------------------------- load yolo
+        weight_name = Path(yolo_ckpt).name
+        local_weights = ckpt_dir / weight_name
+        if Path(yolo_ckpt).exists():
+            model = YOLO(str(yolo_ckpt))
+        elif local_weights.exists():
+            model = YOLO(str(local_weights))
+        else:
+            print(f"Downloading {yolo_ckpt} to {local_weights} ...")
+            tmp_model = YOLO(yolo_ckpt)
+            src = Path(tmp_model.ckpt_path)
+            if src.exists():
+                shutil.copy2(src, local_weights)
+                src.unlink()
+            model = YOLO(str(local_weights))
+        print("YOLO model loaded")
 
-    # -------------------------------------------------------------- load trocr
-    print(f"Loading TrOCR model {trocr_ckpt} ...")
-    processor = TrOCRProcessor.from_pretrained(trocr_ckpt, cache_dir=str(ckpt_dir))
-    trocr_model = VisionEncoderDecoderModel.from_pretrained(trocr_ckpt, cache_dir=str(ckpt_dir))
-    trocr_model.to("cpu")
-    trocr_model.eval()
-    print("TrOCR loaded")
+        # ------------------------------------------------------------ load trocr
+        print(f"Loading TrOCR model {trocr_ckpt} ...")
+        processor = TrOCRProcessor.from_pretrained(trocr_ckpt, cache_dir=str(ckpt_dir))
+        trocr_model = VisionEncoderDecoderModel.from_pretrained(trocr_ckpt, cache_dir=str(ckpt_dir))
+        trocr_model.to("cpu")
+        trocr_model.eval()
+        print("TrOCR loaded")
+    else:
+        model = None
+        processor = None
+        trocr_model = None
 
     # -------------------------------------------------------------- video meta
     cap = cv2.VideoCapture(str(video_path))
@@ -124,6 +130,26 @@ def process_video(
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(str(out_video_path), fourcc, fps if fps > 0 else 30, (width, height))
+
+    if dry_run:
+        cap = cv2.VideoCapture(str(video_path))
+        id_frames: Dict[int, List[int]] = {}
+        tag_numbers: Dict[int, str] = {}
+        for frame_i in range(max_frames):
+            ret, frame = cap.read()
+            if not ret:
+                break
+            cv2.putText(frame, "dummy", (5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            writer.write(frame)
+            id_frames.setdefault(0, []).append(frame_i)
+            tag_numbers[0] = "0"
+        cap.release()
+        writer.release()
+        timestamps_df = _slice_segments(id_frames, fps)
+        timestamps_df.to_csv(out_dir / "tracking_timestamps.csv", index=False)
+        pd.DataFrame([{"id": 0, "ear_tag": tag_numbers.get(0, "")}]).to_csv(out_dir / "id_to_tag.csv", index=False)
+        print(f"Outputs saved to {out_dir}")
+        return
 
     results = model.track(
         source=str(video_path),
@@ -209,6 +235,7 @@ def cli() -> None:
     p.add_argument("--trocr", default="microsoft/trocr-base-handwritten", help="TrOCR model checkpoint")
     p.add_argument("--duration", type=float, help="Process only first N seconds of each video")
     p.add_argument("--det-obj-name", default="ear-tag", help="Name of object class for tags")
+    p.add_argument("--dry-run", action="store_true", help="Skip model loading for tests")
     args = p.parse_args()
 
     videos = _collect_videos(Path(args.input))
@@ -216,7 +243,7 @@ def cli() -> None:
         raise SystemExit("No video files found")
 
     for vid in videos:
-        process_video(vid, args.tracker, args.yolo_ckpt, args.trocr, args.det_obj_name, args.duration)
+        process_video(vid, args.tracker, args.yolo_ckpt, args.trocr, args.det_obj_name, args.duration, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

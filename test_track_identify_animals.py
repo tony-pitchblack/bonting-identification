@@ -35,6 +35,7 @@ def main() -> None:
         "ear-tag",
         "--duration",
         "0.5",
+        "--dry-run",
     ]
     print("Running:", " ".join(cmd))
     subprocess.run(cmd, check=True)
