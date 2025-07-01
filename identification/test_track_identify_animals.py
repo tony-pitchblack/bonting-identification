@@ -31,6 +31,8 @@ def main() -> None:
         "yolov8n.pt",
         "--trocr",
         "microsoft/trocr-small-printed",
+        "--det-obj-name",
+        "ear-tag",
         "--duration",
         "0.5",
     ]

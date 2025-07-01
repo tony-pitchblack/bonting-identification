@@ -62,6 +62,7 @@ def process_video(
     tracker_name: str,
     yolo_ckpt: str,
     trocr_ckpt: str,
+    det_obj_name: str,
     duration_s: float | None = None,
     out_root: Path = Path("data/tracking_videos"),
 ) -> None:
@@ -136,6 +137,8 @@ def process_video(
     tag_numbers: Dict[int, str] = {}
     frame_i = -1
 
+    obj_key = det_obj_name.lower().replace("-", "").replace("_", "").replace(" ", "")
+
     for r in tqdm(results, total=max_frames, desc=f"Tracking {video_path.stem}"):
         frame_i += 1
         if duration_s is not None and frame_i >= max_frames:
@@ -149,11 +152,12 @@ def process_video(
         ids = None if r.boxes.id is None else r.boxes.id.cpu().numpy().astype(int)
         for box, cls_id, obj_id in zip(r.boxes.xyxy.cpu().numpy(), r.boxes.cls.cpu().numpy().astype(int), ids or []):
             name = model.names[int(cls_id)]
+            label_norm = name.lower().replace("-", "").replace("_", "").replace(" ", "")
             if "cow" in name.lower():
                 if obj_id is not None:
                     cows.append((box.tolist(), obj_id))
                     id_frames.setdefault(obj_id, []).append(frame_i)
-            elif "ear" in name.lower():
+            elif obj_key in label_norm:
                 tag_boxes.append(box.tolist())
 
         for tag_box in tag_boxes:
@@ -204,6 +208,7 @@ def cli() -> None:
     p.add_argument("--yolo-ckpt", default="yolo11m.pt", help="YOLO weights path or name")
     p.add_argument("--trocr", default="microsoft/trocr-base-handwritten", help="TrOCR model checkpoint")
     p.add_argument("--duration", type=float, help="Process only first N seconds of each video")
+    p.add_argument("--det-obj-name", default="ear-tag", help="Name of object class for tags")
     args = p.parse_args()
 
     videos = _collect_videos(Path(args.input))
@@ -211,7 +216,7 @@ def cli() -> None:
         raise SystemExit("No video files found")
 
     for vid in videos:
-        process_video(vid, args.tracker, args.yolo_ckpt, args.trocr, args.duration)
+        process_video(vid, args.tracker, args.yolo_ckpt, args.trocr, args.det_obj_name, args.duration)
 
 
 if __name__ == "__main__":
