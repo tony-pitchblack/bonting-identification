@@ -81,7 +81,7 @@ For script-specific details see `manage_data/README.md`.
 After tracking videos are present under `data/HF_dataset/tracking_videos/`, launch the Streamlit viewer:
 
 ```bash
-micromamba activate bonting-exp  # ensure the env is active
+micromamba activate bonting-id  # ensure the env is active
 streamlit run video_demo.py
 ```
 

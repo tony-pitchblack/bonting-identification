@@ -1,4 +1,4 @@
-name: bonting-exp
+name: bonting-id
 channels:
   - conda-forge
 dependencies:

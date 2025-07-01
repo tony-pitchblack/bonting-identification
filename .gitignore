@@ -1,7 +1,6 @@
 # Repo folders & files
 cookies.txt
 data/
-manage_data/
 ckpt/
 runs/
 tmp/
