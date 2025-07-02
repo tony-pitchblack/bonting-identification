@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Determine script directory & project root
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." &> /dev/null && pwd)"
+TMP_DIR="${PROJECT_ROOT}/tmp/vehicle_rear"
+DATA_DIR="${PROJECT_ROOT}/data/vehicle_rear"
+
 # Default settings
 INCLUDE_DATA=false
 FORCE=false
@@ -23,8 +29,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-mkdir -p tmp/vehicle_rear
-mkdir -p data/vehicle_rear
+mkdir -p "${TMP_DIR}"
+mkdir -p "${DATA_DIR}"
 
 # Function to check if directory has content
 has_content() {
@@ -35,8 +41,8 @@ has_content() {
 download_and_extract() {
     local name=$1
     local url=$2
-    local archive="tmp/vehicle_rear/$name.tgz"
-    local extract_dir="data/vehicle_rear"
+    local archive="${TMP_DIR}/$name.tgz"
+    local extract_dir="${DATA_DIR}"
     
     if [ "$FORCE" = true ] || [ ! -f "$archive" ]; then
         echo "Downloading vehicle rear dataset $name..."

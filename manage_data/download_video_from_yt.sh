@@ -11,7 +11,12 @@ if [[ "${CONDA_DEFAULT_ENV}" != "bonting-id" ]]; then
     micromamba activate bonting-id
 fi
 
-# Create directories if they don't exist
-mkdir -p "../data/HF_dataset/source_videos/youtube_full"
+# Determine script directory & project root
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." &> /dev/null && pwd)"
 
-yt-dlp --no-cache-dir --cookies ../cookies.txt -P ../data/HF_dataset/source_videos/youtube_full/ https://www.youtube.com/watch?v=9sWtw_EtHKI
+# Create directories if they don't exist
+YT_DIR="${PROJECT_ROOT}/data/HF_dataset/source_videos/youtube_full"
+mkdir -p "${YT_DIR}"
+
+yt-dlp --no-cache-dir --cookies "${PROJECT_ROOT}/cookies.txt" -P "${YT_DIR}" https://www.youtube.com/watch?v=9sWtw_EtHKI

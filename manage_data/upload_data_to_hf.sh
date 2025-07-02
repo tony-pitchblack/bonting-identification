@@ -37,14 +37,21 @@ if [ -z "$HF_TOKEN" ] || [ -z "$HF_REPO_ID" ]; then
     exit 1
 fi
 
+DATA_DIR="${PROJECT_ROOT}/data/HF_dataset"
 # Check if data directory exists
-if [ ! -d "../data/HF_dataset" ]; then
-    echo "Error: data directory not found"
+if [ ! -d "${DATA_DIR}" ]; then
+    echo "Error: data directory not found at ${DATA_DIR}"
     exit 1
 fi
 
 # Upload data directory
 echo "Uploading data directory to $HF_REPO_ID..."
-huggingface-cli upload "$HF_REPO_ID" "../data/HF_dataset/" --token "$HF_TOKEN" --repo-type dataset
+huggingface-cli \
+    upload \
+    "$HF_REPO_ID" \
+    "${DATA_DIR}/" \
+    --token "$HF_TOKEN" \
+    --repo-type dataset \
+    --delete "*"
 
 echo "Data uploaded successfully to $HF_REPO_ID"
