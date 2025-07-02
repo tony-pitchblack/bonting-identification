@@ -14,9 +14,6 @@ from dotenv import load_dotenv
 from ultralytics import YOLO
 
 
-DATASET_HANDLE = "fandaoerji/cow-eartag-detection-dataset"
-
-
 # --------------------------- logging helpers ---------------------------------
 
 def setup_logging(logging_mode: str, experiment_name: str) -> object:
@@ -100,25 +97,9 @@ def log_metrics(mlflow_mod: object | None, metrics: Dict[str, Any]) -> None:
 # ----------------------------------------------------------------------------
 
 
-def download_dataset() -> Path | None:
-    """Download dataset from Kaggle if possible."""
-    try:
-        import kagglehub
-    except Exception as e:
-        print(f"kagglehub not installed: {e}")
-        return None
-    try:
-        path = kagglehub.dataset_download(DATASET_HANDLE)
-        print(f"Path to dataset files: {path}")
-        return Path(path)
-    except Exception as e:
-        print(f"Dataset download failed: {e}")
-        return None
-
-
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Fine-tune YOLO on ear-tag dataset")
-    p.add_argument("--data", type=str, help="Path to dataset directory or dataset.yaml")
+    p.add_argument("data_folder", type=str, help="Path to dataset directory containing dataset.yaml")
     p.add_argument("--epochs", type=int, default=10)
     p.add_argument("--batch", type=int, default=16)
     p.add_argument("--device", type=str, default="cpu")
@@ -175,19 +156,8 @@ def main() -> None:
     # Configure logging / MLflow
     mlflow_mod = setup_logging(args.logging, args.experiment)
 
-    # Resolve dataset YAML
-    if args.data:
-        yaml_path = _resolve_yaml(Path(args.data))
-    else:
-        env_dir = os.environ.get("EAR_TAG_DATASET")
-        if env_dir:
-            yaml_path = _resolve_yaml(Path(env_dir))
-        else:
-            d = download_dataset()
-            if d is None:
-                print("Dataset unavailable. Exiting.")
-                return
-            yaml_path = _resolve_yaml(d)
+    # Resolve dataset YAML from provided data folder
+    yaml_path = _resolve_yaml(Path(args.data_folder))
 
     # --------------- helper to run training -----------------
     def _run_training() -> tuple[object, "YOLO"]:  # type: ignore

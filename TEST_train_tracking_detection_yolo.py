@@ -39,18 +39,17 @@ def maketmpset() -> Path:
         f.write(
             f"path: {TMP_ROOT}\ntrain: images/train\nval: images/val\nnames: ['ear-tag']\n"
         )
-    return yaml_path
+    return TMP_ROOT
 
 
 def main() -> None:
-    yaml_path = maketmpset()
+    dataset_folder = maketmpset()
     
     # Default arguments
     cmd = [
         "python",
         str(THIS_DIR / "train_identification_yolo.py"),
-        "--data",
-        str(yaml_path),
+        str(dataset_folder),
         "--epochs",
         "1",
         "--batch",
