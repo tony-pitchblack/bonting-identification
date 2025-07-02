@@ -2,7 +2,7 @@ name: bonting-id
 channels:
   - conda-forge
 dependencies:
-  - python>=3.10
+  - python=3.10
   - pandas
   - tqdm
   - streamlit
@@ -10,6 +10,8 @@ dependencies:
   - pytorch
   - torchvision
   - pip:
+      - ipywidgets
+      - ipykernel
       - ultralytics>=8.2.0
       - yt-dlp
       - huggingface_hub[hf_xet,cli]
