@@ -241,7 +241,7 @@ def cli() -> None:
     p = argparse.ArgumentParser(
         description="Track cattle and output visibility timestamps."
     )
-    p.add_argument("--input", required=True, help="Video file or folder of videos")
+    p.add_argument("input", help="Video file or folder of videos")
     p.add_argument(
         "--mode",
         choices=["detect", "segment"],

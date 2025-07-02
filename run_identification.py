@@ -6,6 +6,8 @@ import argparse
 import datetime as dt
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -66,41 +68,40 @@ def process_video(
     duration_s: float | None = None,
     n_debug_images: int = 0,
     out_root: Path = Path("data/HF_dataset/processed_videos/identification"),
-    dry_run: bool = False,
 ) -> None:
     print(f"\nProcessing video: {video_path.name}")
     ckpt_dir = Path("ckpt")
     ckpt_dir.mkdir(exist_ok=True)
 
-    if not dry_run:
-        # ------------------------------------------------------------- load yolo
-        weight_name = Path(yolo_ckpt).name
-        local_weights = ckpt_dir / weight_name
-        if Path(yolo_ckpt).exists():
-            model = YOLO(str(yolo_ckpt))
-        elif local_weights.exists():
-            model = YOLO(str(local_weights))
-        else:
-            print(f"Downloading {yolo_ckpt} to {local_weights} ...")
-            tmp_model = YOLO(yolo_ckpt)
-            src = Path(tmp_model.ckpt_path)
-            if src.exists():
-                shutil.copy2(src, local_weights)
-                src.unlink()
-            model = YOLO(str(local_weights))
-        print("YOLO model loaded")
-
-        # ------------------------------------------------------------ load trocr
-        print(f"Loading TrOCR model {trocr_ckpt} ...")
-        processor = TrOCRProcessor.from_pretrained(trocr_ckpt, cache_dir=str(ckpt_dir))
-        trocr_model = VisionEncoderDecoderModel.from_pretrained(trocr_ckpt, cache_dir=str(ckpt_dir))
-        trocr_model.to("cpu")
-        trocr_model.eval()
-        print("TrOCR loaded")
+    # ------------------------------------------------------------- load yolo
+    weight_name = Path(yolo_ckpt).name
+    local_weights = ckpt_dir / weight_name
+    if Path(yolo_ckpt).exists():
+        model = YOLO(str(yolo_ckpt))
+    elif local_weights.exists():
+        model = YOLO(str(local_weights))
     else:
-        model = None
-        processor = None
-        trocr_model = None
+        print(f"Downloading {yolo_ckpt} to {local_weights} ...")
+        tmp_model = YOLO(yolo_ckpt)
+        src = Path(tmp_model.ckpt_path)
+        if src.exists():
+            shutil.copy2(src, local_weights)
+            src.unlink()
+        model = YOLO(str(local_weights))
+    print("YOLO model loaded")
+
+    # ------------------------------------------------------------ load trocr
+    print(f"Loading TrOCR model {trocr_ckpt} ...")
+
+    processor = TrOCRProcessor.from_pretrained(
+        trocr_ckpt,
+        cache_dir=str(ckpt_dir),
+        use_fast=False,  # avoid SentencePiece → fast tokenizer conversion issues
+    )
+    trocr_model = VisionEncoderDecoderModel.from_pretrained(trocr_ckpt, cache_dir=str(ckpt_dir))
+    trocr_model.to("cpu")
+    trocr_model.eval()
+    print("TrOCR loaded")
 
     # -------------------------------------------------------------- video meta
     cap = cv2.VideoCapture(str(video_path))
@@ -129,34 +130,16 @@ def process_video(
     out_dir.mkdir(parents=True, exist_ok=True)
     out_video_path = out_dir / "processed_video.mp4"
 
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    writer = cv2.VideoWriter(str(out_video_path), fourcc, fps if fps > 0 else 30, (width, height))
+    first_frame = None
+    writer = None
 
-    if dry_run:
-        cap = cv2.VideoCapture(str(video_path))
-        id_frames: Dict[int, List[int]] = {}
-        tag_numbers: Dict[int, str] = {}
-        for frame_i in range(max_frames):
-            ret, frame = cap.read()
-            if not ret:
-                break
-            cv2.putText(frame, "dummy", (5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            writer.write(frame)
-            id_frames.setdefault(0, []).append(frame_i)
-            tag_numbers[0] = "0"
-        cap.release()
-        writer.release()
-        timestamps_df = _slice_segments(id_frames, fps)
-        timestamps_df.to_csv(out_dir / "tracking_timestamps.csv", index=False)
-        pd.DataFrame([{"id": 0, "ear_tag": tag_numbers.get(0, "")}]).to_csv(out_dir / "id_to_tag.csv", index=False)
-        print(f"Outputs saved to {out_dir}")
-        return
-
+    # Enable automatic saving of detection crops for subsequent OCR processing
     results = model.track(
         source=str(video_path),
         tracker=f"{tracker_name}.yaml",
         stream=True,
         imgsz=640,
+        save_crop=True,
         verbose=True,
     )
 
@@ -165,11 +148,6 @@ def process_video(
     frame_i = -1
 
     obj_key = det_obj_name.lower().replace("-", "").replace("_", "").replace(" ", "")
-
-    # prepare debug directory if requested
-    if n_debug_images > 0:
-        dbg_dir = Path("tmp/debug_trocr") / video_path.stem
-        dbg_dir.mkdir(parents=True, exist_ok=True)
 
     for r in tqdm(results, total=max_frames, desc=f"Tracking {video_path.stem}"):
         frame_i += 1
@@ -224,14 +202,25 @@ def process_video(
                     (0, 255, 0),
                     1,
                 )
+
+        # store the first annotated frame
+        if frame_i == 0:
+            first_frame = annotated.copy()
+
+        if writer is None:
+            h, w = annotated.shape[:2]           # real size of drawn frame
+            fourcc = cv2.VideoWriter_fourcc(*"MJPG")  # always available
+            tmp_avi  = out_dir / "tmp.avi"
+            writer = cv2.VideoWriter(str(tmp_avi), fourcc, fps if fps > 0 else 30, (w, h))
         writer.write(annotated)
 
-        # ------------------------------------------------------ debug logging
-        if n_debug_images > 0 and frame_i % n_debug_images == 0:
-            dbg_path = dbg_dir / f"frame_{frame_i:06d}.jpg"
-            cv2.imwrite(str(dbg_path), annotated)
-
     writer.release()
+    
+    # ------------------------------------------------------ save first frame after processing
+    debug_path = Path("tmp/debug_trocr/first_frame.png")
+    debug_path.parent.mkdir(parents=True, exist_ok=True)
+    if first_frame is not None:
+        cv2.imwrite(str(debug_path), first_frame)
 
     timestamps_df = _slice_segments(id_frames, fps)
     timestamps_df.to_csv(out_dir / "tracking_timestamps.csv", index=False)
@@ -243,19 +232,53 @@ def process_video(
         ]
     )
     mapping.to_csv(out_dir / "id_to_tag.csv", index=False)
+
+    # ------------------------------------------------------ optional metric computation
+    metrics_rows = []
+    n_total_ids = len(mapping)
+    n_recognized = int(mapping["ear_tag"].fillna("").str.len().gt(0).sum())
+    recognition_rate = n_recognized / n_total_ids if n_total_ids else 0.0
+    metrics_rows.append({"metric": "n_total_ids", "value": n_total_ids})
+    metrics_rows.append({"metric": "n_recognized_ids", "value": n_recognized})
+    metrics_rows.append({"metric": "recognition_rate", "value": recognition_rate})
+
+    # If ground-truth mapping is supplied and readable, compute accuracy.
+    if gt_mapping_path is not None and gt_mapping_path.exists():
+        try:
+            gt_df = pd.read_csv(gt_mapping_path)
+            if {"id", "ear_tag"}.issubset(gt_df.columns):
+                merged = pd.merge(gt_df, mapping, on="id", how="left", suffixes=("_gt", "_pred"))
+                merged["correct"] = merged["ear_tag_gt"].astype(str).str.strip() == merged["ear_tag_pred"].astype(str).str.strip()
+                accuracy = merged["correct"].mean() if len(merged) else 0.0
+                metrics_rows.append({"metric": "accuracy", "value": accuracy})
+        except Exception as e:
+            print(f"Warning: failed to compute accuracy metrics – {e}")
+
+    pd.DataFrame(metrics_rows).to_csv(out_dir / "metrics.csv", index=False)
+
     print(f"Outputs saved to {out_dir}")
+
+    # convert to mp4 so downstream code stays the same
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", str(tmp_avi), str(out_video_path)],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    tmp_avi.unlink()
 
 
 def cli() -> None:
     p = argparse.ArgumentParser(description="Track cattle and identify ear tags")
-    p.add_argument("--input", required=True, help="Video file or folder of videos")
+    p.add_argument("input", help="Video file or folder of videos")
     p.add_argument("--tracker", choices=["bytetrack", "botsort"], default="bytetrack")
     p.add_argument("--yolo-ckpt", default="yolo11m.pt", help="YOLO weights path or name")
     p.add_argument("--trocr", default="microsoft/trocr-base-handwritten", help="TrOCR model checkpoint")
     p.add_argument("--duration", type=float, help="Process only first N seconds of each video")
     p.add_argument("--det-obj-name", default="ear-tag", help="Name of object class for tags")
     p.add_argument("--n_debug_images", type=int, default=0, help="Save every Nth annotated frame for debugging TrOCR processing (0 = disabled)")
-    p.add_argument("--dry-run", action="store_true", help="Skip model loading for tests")
+    p.add_argument("--out-root", default="data/CEID-D/processed_videos/identification", help="Root output directory compliant with CEID-D dataset structure")
+    p.add_argument("--gt-mapping", help="CSV with ground-truth id→ear_tag mapping to compute accuracy metrics")
     args = p.parse_args()
 
     videos = _collect_videos(Path(args.input))
@@ -271,7 +294,8 @@ def cli() -> None:
             args.det_obj_name,
             args.duration,
             n_debug_images=args.n_debug_images,
-            dry_run=args.dry_run,
+            out_root=Path(args.out_root),
+            gt_mapping_path=Path(args.gt_mapping) if args.gt_mapping else None,
         )
 
 
