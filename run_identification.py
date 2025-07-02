@@ -65,11 +65,12 @@ def process_video(
     yolo_ckpt: str,
     trocr_ckpt: str,
     det_obj_name: str,
+    device: str = "cpu",
     duration_s: float | None = None,
     n_debug_images: int = 0,
     out_root: Path = Path("data/HF_dataset/processed_videos/identification"),
+    gt_mapping_path: Path | None = None,
 ) -> None:
-    print(f"\nProcessing video: {video_path.name}")
     ckpt_dir = Path("ckpt")
     ckpt_dir.mkdir(exist_ok=True)
 
@@ -81,27 +82,22 @@ def process_video(
     elif local_weights.exists():
         model = YOLO(str(local_weights))
     else:
-        print(f"Downloading {yolo_ckpt} to {local_weights} ...")
         tmp_model = YOLO(yolo_ckpt)
         src = Path(tmp_model.ckpt_path)
         if src.exists():
             shutil.copy2(src, local_weights)
             src.unlink()
         model = YOLO(str(local_weights))
-    print("YOLO model loaded")
 
     # ------------------------------------------------------------ load trocr
-    print(f"Loading TrOCR model {trocr_ckpt} ...")
-
     processor = TrOCRProcessor.from_pretrained(
         trocr_ckpt,
         cache_dir=str(ckpt_dir),
         use_fast=False,  # avoid SentencePiece → fast tokenizer conversion issues
     )
     trocr_model = VisionEncoderDecoderModel.from_pretrained(trocr_ckpt, cache_dir=str(ckpt_dir))
-    trocr_model.to("cpu")
+    trocr_model.to(device)
     trocr_model.eval()
-    print("TrOCR loaded")
 
     # -------------------------------------------------------------- video meta
     cap = cv2.VideoCapture(str(video_path))
@@ -140,7 +136,7 @@ def process_video(
         stream=True,
         imgsz=640,
         save_crop=True,
-        verbose=True,
+        verbose=False,  # Disable YOLO's built-in progress bar
     )
 
     id_frames: Dict[int, List[int]] = {}
@@ -149,7 +145,7 @@ def process_video(
 
     obj_key = det_obj_name.lower().replace("-", "").replace("_", "").replace(" ", "")
 
-    for r in tqdm(results, total=max_frames, desc=f"Tracking {video_path.stem}"):
+    for r in tqdm(results, total=max_frames, desc=f"Processing {video_path.stem}"):
         frame_i += 1
         if duration_s is not None and frame_i >= max_frames:
             break
@@ -214,7 +210,8 @@ def process_video(
             writer = cv2.VideoWriter(str(tmp_avi), fourcc, fps if fps > 0 else 30, (w, h))
         writer.write(annotated)
 
-    writer.release()
+    if writer is not None:
+        writer.release()
     
     # ------------------------------------------------------ save first frame after processing
     debug_path = Path("tmp/debug_trocr/first_frame.png")
@@ -251,12 +248,10 @@ def process_video(
                 merged["correct"] = merged["ear_tag_gt"].astype(str).str.strip() == merged["ear_tag_pred"].astype(str).str.strip()
                 accuracy = merged["correct"].mean() if len(merged) else 0.0
                 metrics_rows.append({"metric": "accuracy", "value": accuracy})
-        except Exception as e:
-            print(f"Warning: failed to compute accuracy metrics – {e}")
+        except Exception:
+            pass
 
     pd.DataFrame(metrics_rows).to_csv(out_dir / "metrics.csv", index=False)
-
-    print(f"Outputs saved to {out_dir}")
 
     # convert to mp4 so downstream code stays the same
     subprocess.run(
@@ -279,19 +274,23 @@ def cli() -> None:
     p.add_argument("--n_debug_images", type=int, default=0, help="Save every Nth annotated frame for debugging TrOCR processing (0 = disabled)")
     p.add_argument("--out-root", default="data/CEID-D/processed_videos/identification", help="Root output directory compliant with CEID-D dataset structure")
     p.add_argument("--gt-mapping", help="CSV with ground-truth id→ear_tag mapping to compute accuracy metrics")
+    p.add_argument("--device", choices=["cpu", "cuda"], default="cpu", help="Device to use for TrOCR processing")
     args = p.parse_args()
 
     videos = _collect_videos(Path(args.input))
     if not videos:
         raise SystemExit("No video files found")
 
-    for vid in videos:
+    for i, vid in enumerate(videos, 1):
+        if len(videos) > 1:
+            print(f"\nProcessing video {i}/{len(videos)}: {vid.name}")
         process_video(
             vid,
             args.tracker,
             args.yolo_ckpt,
             args.trocr,
             args.det_obj_name,
+            args.device,
             args.duration,
             n_debug_images=args.n_debug_images,
             out_root=Path(args.out_root),

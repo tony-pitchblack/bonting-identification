@@ -33,10 +33,9 @@ VIDEO_EXT = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 
 def _slice_segments(id_frames: Dict[int, List[int]], fps: float) -> pd.DataFrame:
     """Convert {id: [frame_indices]} → DataFrame(id, start_ts, end_ts)."""
-    print(f"Building timestamps for {len(id_frames)} tracking IDs...")
     rows: List[Tuple[int, float, float]] = []
 
-    for cid, frames in tqdm(id_frames.items(), desc="Processing tracking IDs"):
+    for cid, frames in tqdm(id_frames.items(), desc="Building tracking segments"):
         frames.sort()
         start = frames[0]
 
@@ -52,20 +51,16 @@ def _slice_segments(id_frames: Dict[int, List[int]], fps: float) -> pd.DataFrame
     df = pd.DataFrame(rows, columns=["id", "start_ts", "end_ts"]).sort_values(
         ["id", "start_ts"]
     )
-    print(f"Generated {len(df)} timestamps")
     return df
 
 
 def _collect_videos(path: Path) -> List[Path]:
-    print(f"Searching for videos in: {path}")
     if path.is_file() and path.suffix.lower() in VIDEO_EXT:
-        print(f"Found single video file: {path.name}")
         return [path]
     if path.is_dir():
         videos = [p for p in path.iterdir() if p.suffix.lower() in VIDEO_EXT]
-        print(f"Found {len(videos)} video files in directory")
-        for vid in videos:
-            print(f"  - {vid.name}")
+        if not videos:
+            raise FileNotFoundError(f"No video files found in directory: {path}")
         return videos
     raise FileNotFoundError(f"{path} is neither a video nor a folder with videos.")
 
@@ -77,12 +72,10 @@ def process_video(
     video_path: Path,
     mode: str,
     tracker_name: str,
+    device: str = "cpu",
     duration_s: float | None = None,  # process only first N seconds if provided
     out_root: Path = Path("data/HF_dataset/processed_videos/tracking"),
 ) -> None:
-    print(f"\nProcessing video: {video_path.name}")
-    print(f"Mode: {mode}, Tracker: {tracker_name}")
-
     # ------------------------------------------------------------------ model
     # We store model checkpoints next to this script so they are reused
     ckpt_dir = Path("ckpt")  # relative to where the script is launched
@@ -92,29 +85,19 @@ def process_video(
     local_weights = ckpt_dir / model_file
 
     if local_weights.exists():
-        print(f"Loading YOLO model from local weights: {local_weights} ...")
         model = YOLO(str(local_weights))
     else:
-        print(f"Downloading {model_file} to {ckpt_dir} ...")
-        # Download to a temp location first
         model = YOLO(model_file)
         # Get the downloaded weights path and move to our ckpt dir
         src_path = Path(model.ckpt_path)
         if src_path.exists():
             shutil.copy2(src_path, local_weights)
-            print(f"Moved weights to {local_weights}")
             # Delete the source file to save space
             src_path.unlink()
-            print(f"Deleted source weights at {src_path}")
             # Reload model with the moved weights
             model = YOLO(str(local_weights))
-        else:
-            print(f"Warning: Could not find downloaded weights at {src_path}")
-
-    print("Model loaded.")
 
     # ----------------------------------------------------------- video meta
-    print("Reading video metadata ...")
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open {video_path}")
@@ -123,11 +106,8 @@ def process_video(
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     duration = frame_count / fps if fps > 0 else 0
     cap.release()
-    
-    print(f"Video info: {frame_count} frames, {fps:.2f} FPS, {duration:.2f}s")
 
     # ---------------------------------------------------------- run tracker
-    print(f"Running tracker ({tracker_name}) ...")
     id_frames: Dict[int, List[int]] = {}
     frame_i = -1
 
@@ -137,18 +117,14 @@ def process_video(
         save=True,
         stream=True,  # yields results one frame at a time
         imgsz=640,
-        verbose=True,
+        device=device,
+        verbose=False,  # Disable YOLO's built-in progress bar
     )
 
     # Determine how many frames to process if duration limit is set
-    if duration_s is not None and fps > 0:
-        max_frames = min(frame_count, int(duration_s * fps))
-        print(f"Processing first {duration_s} seconds (~{max_frames} frames) ...")
-    else:
-        max_frames = frame_count
-        print("Processing frames and tracking objects ...")
+    max_frames = min(frame_count, int(duration_s * fps)) if duration_s is not None and fps > 0 else frame_count
 
-    for r in tqdm(results, desc=f"Tracking {video_path.stem}", total=max_frames):
+    for r in tqdm(results, desc=f"Processing {video_path.stem}", total=max_frames):
         frame_i += 1
         ids = (
             []
@@ -161,14 +137,10 @@ def process_video(
         if duration_s is not None and frame_i + 1 >= max_frames:
             break
 
-    print(f"Tracking complete. Processed {frame_i + 1} frames")
-    print(f"Found {len(id_frames)} unique tracking IDs")
-
     # ---------------------------------------------------------- build timestamps
     timestamps_df = _slice_segments(id_frames, fps)
 
     # ------------------------------------------------------------- outputs
-    print("Preparing output files ...")
     time_tag = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
     # Determine the folder structure based on the input video path
@@ -191,10 +163,8 @@ def process_video(
         / f"{time_tag}_model={mode}_tracker={tracker_name}"
     )
     out_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Output directory: {out_dir}")
 
     # Move/convert annotated video to MP4 in the output directory
-    print("Collecting annotated video ...")
     track_base = Path("runs/detect" if mode == "detect" else "runs/segment")
     track_dirs = [d for d in track_base.glob("track*") if d.is_dir()]
 
@@ -219,25 +189,16 @@ def process_video(
                     ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     os.remove(ann_video)
                 except Exception as e:
-                    print(f"Warning: failed to convert video to mp4 ({e}). Saving original format.")
                     shutil.move(str(ann_video), dest_video.with_suffix(ann_video.suffix))
-            print("Annotated video saved.")
-        else:
-            print("No annotated video file found.")
-    else:
-        print("No tracking output directory found.")
 
     # Clean up temporary Ultralytics output directory to save space
     shutil.rmtree("runs", ignore_errors=True)
 
     # — timestamps CSV
-    print("Saving tracking timestamps CSV ...")
     timestamps_df.to_csv(out_dir / "tracking_timestamps.csv", index=False)
-    print("Processing complete.\n")
 
 
 def cli() -> None:
-    print("Starting animal tracking ...")
     p = argparse.ArgumentParser(
         description="Track cattle and output visibility timestamps."
     )
@@ -259,24 +220,22 @@ def cli() -> None:
         type=float,
         help="Process only first N seconds of each video for debugging",
     )
+    p.add_argument(
+        "--device",
+        choices=["cpu", "cuda"],
+        default="cpu",
+        help="Device to use for YOLO processing (cpu or cuda)",
+    )
     args = p.parse_args()
-
-    print("Configuration:")
-    print(f"  Input: {args.input}")
-    print(f"  Mode: {args.mode}")
-    print(f"  Tracker: {args.tracker}")
-    print(f"  Duration: {args.duration} seconds")
 
     videos = _collect_videos(Path(args.input))
     if not videos:
         raise SystemExit("❌ No video files found.")
 
-    print(f"\nProcessing {len(videos)} video(s) ...")
     for i, vid in enumerate(videos, 1):
-        print(f"\n--- Video {i}/{len(videos)} ---")
-        process_video(vid, args.mode, args.tracker, args.duration)
-
-    print("All videos processed successfully.")
+        if len(videos) > 1:
+            print(f"\nProcessing video {i}/{len(videos)}: {vid.name}")
+        process_video(vid, args.mode, args.tracker, args.device, args.duration)
 
 
 if __name__ == "__main__":
