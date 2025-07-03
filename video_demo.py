@@ -3,6 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit_tree_select import tree_select
 
 
 st.title("Cattle‐Visibility Segments")
@@ -16,36 +17,102 @@ if not subfolders:
     st.error("No subfolders found under data/HF_dataset/processed_videos.")
     st.stop()
 
-selected_folder: Path = st.selectbox(
-    "Select processed data type", subfolders, format_func=lambda p: p.name
-)
+# Sort subfolders by name for consistent display
+subfolders = sorted(subfolders, key=lambda p: p.name)
 
-# Directory that contains runs for the chosen type
-tracking_root = selected_folder
+# Build tree structure for file selection
+def build_tree_structure():
+    tree_nodes = []
+    
+    for subfolder in subfolders:
+        # Find all video paths in this subfolder
+        video_paths = list(subfolder.rglob("processed_video.mp4"))
+        
+        if not video_paths:
+            continue
+            
+        # Group by source name
+        source_groups = {}
+        for video_path in video_paths:
+            source_name = extract_source_name_from_path(video_path, subfolder)
+            if source_name not in source_groups:
+                source_groups[source_name] = []
+            source_groups[source_name].append(video_path)
+        
+        # Build children for this subfolder
+        subfolder_children = []
+        for source_name in sorted(source_groups.keys()):
+            source_videos = source_groups[source_name]
+            
+            # Build children for this source
+            video_children = []
+            for video_path in sorted(source_videos, key=lambda p: p.parent.name):
+                video_children.append({
+                    "label": video_path.parent.name,
+                    "value": str(video_path)
+                })
+            
+            subfolder_children.append({
+                "label": source_name,
+                "value": f"{subfolder.name}_{source_name}",
+                "children": video_children
+            })
+        
+        # Add subfolder to tree
+        tree_nodes.append({
+            "label": subfolder.name,
+            "value": subfolder.name,
+            "children": subfolder_children
+        })
+    
+    return tree_nodes
 
-# Find every produced tracking video
-video_paths = sorted(tracking_root.rglob("processed_video.mp4"))
+def extract_source_name_from_path(path: Path, tracking_root: Path) -> str:
+    """Extract source video name from path structure."""
+    try:
+        # Get relative path from tracking_root
+        rel_path = path.relative_to(tracking_root)
+        # The source name should be the first directory in the relative path
+        if len(rel_path.parts) >= 2:
+            return rel_path.parts[0]
+        else:
+            return rel_path.parts[0] if rel_path.parts else "Unknown"
+    except ValueError:
+        return "Unknown"
 
-if not video_paths:
-    st.error("No tracking videos found under data/HF_dataset/processed_videos/tracking.")
+# Build and display tree selection
+tree_nodes = build_tree_structure()
+
+if not tree_nodes:
+    st.error("No processed videos found.")
     st.stop()
 
-# Let the user pick which video to inspect
-def _label(p: Path) -> str:
-    """Beautify the path for display in the selector."""
-    try:
-        # Show the two final path parts (segment folder / run folder)
-        return "/".join(p.relative_to(tracking_root).parts[-2:])
-    except ValueError:
-        return str(p)
+st.subheader("Select Video")
+selected = tree_select(
+    tree_nodes,
+    check_model="leaf",
+    only_leaf_checkboxes=True,
+    show_expand_all=True
+)
 
-selected_video: Path = st.selectbox("Select tracking video", video_paths, format_func=_label)
+# Get selected video path
+if not selected['checked']:
+    st.info("Please select a video from the tree above.")
+    st.stop()
+
+# Get the first selected video (since we're using leaf selection)
+selected_video_str = selected['checked'][0]
+selected_video_path = Path(selected_video_str)
+
+if not selected_video_path.exists():
+    st.error(f"Selected video file does not exist: {selected_video_path}")
+    st.stop()
 
 # Display the selected video
-st.video(selected_video)
+st.video(selected_video_path)
 
 # Associated timestamps CSV lives alongside the video
-csv_path = selected_video.with_name("tracking_timestamps.csv")
+csv_path = selected_video_path.with_name("tracking_timestamps.csv")
 
 segments: list[tuple[int, float, float]] = []
 
@@ -58,7 +125,7 @@ if csv_path.exists():
             t1 = float(row["end_ts"])
             segments.append((cid, t0, t1))
 else:
-    st.warning(f"No timestamp file found for {selected_video.name}.")
+    st.warning(f"No timestamp file found for {selected_video_path.name}.")
 
 # Build options list for dropdown – label with cow ID
 options_html = "\n".join(
