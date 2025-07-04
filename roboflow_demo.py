@@ -32,6 +32,7 @@ def infer_video_with_roboflow(model_id: str,
                               input_video: str,
                               output_dir: str,
                               conf: float = 0.4,
+                              font_size: float = 1.0,
                               duration: Optional[int] = None):
     """
     Runs inference on each frame of input_video using Roboflow inference API,
@@ -43,6 +44,7 @@ def infer_video_with_roboflow(model_id: str,
         input_video: Path to input video
         output_dir: Directory to save output
         conf: Confidence threshold
+        font_size: Font size scale for annotation text (default: 1.0)
         duration: Optional duration limit in seconds
     """
     # Initialize HTTP client pointing to local inference server
@@ -117,7 +119,7 @@ def infer_video_with_roboflow(model_id: str,
                 # Draw label
                 label = f"{class_name}: {confidence:.2f}"
                 cv2.putText(annotated, label, (x, y - 10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                           cv2.FONT_HERSHEY_SIMPLEX, font_size, (0, 255, 0), 2)
 
             out.write(annotated)
             frame_count += 1
@@ -127,7 +129,7 @@ def infer_video_with_roboflow(model_id: str,
     out.release()
     print(f"[+] MP4 video saved to {output_video_mp4}")
 
-def create_test_video(output_path: str, duration: int = 5):
+def create_test_video(output_path: str, duration: int = 5, font_size: float = 1.0):
     """Create a simple test video for demonstration."""
     import numpy as np
     
@@ -154,7 +156,7 @@ def create_test_video(output_path: str, duration: int = 5):
         
         cv2.rectangle(frame, (x, y), (x + 100, y + 80), (0, 255, 0), -1)
         cv2.putText(frame, f"Frame {frame_num}", (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                   cv2.FONT_HERSHEY_SIMPLEX, font_size, (255, 255, 255), 2)
         
         out.write(frame)
     
@@ -165,6 +167,7 @@ if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run Roboflow inference on video")
     parser.add_argument("--duration", type=int, help="Limit processing to specified number of seconds")
+    parser.add_argument("--font-size", type=float, default=1.0, help="Font size scale for annotation text (default: 1.0)")
     args = parser.parse_args()
     
     # Load environment variables
@@ -224,5 +227,6 @@ if __name__ == "__main__":
         input_video=INPUT_VIDEO,
         output_dir=str(out_dir),
         conf=0.4,
+        font_size=args.font_size,
         duration=args.duration
     )
