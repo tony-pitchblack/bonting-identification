@@ -3,7 +3,7 @@
 roboflow_ocr_demo.py
 
 1) Use Roboflow inference API to load YOLO model for object detection.
-2) For each detected bbox, run TrOCR OCR on the cropped region.
+2) For each detected bbox, run either TROCR or EasyOCR on the cropped region.
 3) Draw both detection boxes and OCR text results.
 4) Save annotated output video.
 """
@@ -34,7 +34,11 @@ def infer_video_with_roboflow_ocr(model_id: str,
                                   output_dir: str,
                                   conf: float = 0.4,
                                   font_size: float = 1.0,
-                                  duration: Optional[int] = None):
+                                  duration: Optional[int] = None,
+                                  use_trocr: bool = False,
+                                  use_easyocr: bool = True,
+                                  trocr_ckpt: str = "trocr-small-printed",
+                                  easyocr_ckpt: str = "en"):
     """
     Runs inference on each frame of input_video using Roboflow inference API,
     detects objects with YOLO, runs OCR on detected regions, and annotates
@@ -48,6 +52,10 @@ def infer_video_with_roboflow_ocr(model_id: str,
         conf: Confidence threshold
         font_size: Font size scale for annotation text (default: 1.0)
         duration: Optional duration limit in seconds
+        use_trocr: Whether to use TROCR model
+        use_easyocr: Whether to use EasyOCR model
+        trocr_ckpt: TROCR checkpoint name
+        easyocr_ckpt: EasyOCR language codes
     """
     # Initialize HTTP client pointing to local inference server
     client = InferenceHTTPClient(api_url="http://127.0.0.1:9001", api_key=api_key)
@@ -55,6 +63,25 @@ def infer_video_with_roboflow_ocr(model_id: str,
     client.configure(InferenceConfiguration(confidence_threshold=conf))
 
     print(f"[+] Initialized InferenceHTTPClient for model: {model_id}")
+
+    # Initialize OCR models
+    easyocr_reader = None
+    if use_easyocr:
+        try:
+            import easyocr
+            # Parse language codes from easyocr_ckpt (comma-separated)
+            languages = [lang.strip() for lang in easyocr_ckpt.split(',')]
+            easyocr_reader = easyocr.Reader(languages)
+            print(f"[+] Initialized EasyOCR with languages: {languages}")
+        except ImportError:
+            print("[-] EasyOCR not installed. Install with: pip install easyocr")
+            raise
+        except Exception as e:
+            print(f"[-] Error initializing EasyOCR: {e}")
+            raise
+
+    if use_trocr:
+        print(f"[+] Will use TROCR model: {trocr_ckpt}")
 
     # Open video
     cap = cv2.VideoCapture(input_video)
@@ -136,10 +163,16 @@ def infer_video_with_roboflow_ocr(model_id: str,
                 # Extract ROI for OCR
                 roi = frame[y:y+h, x:x+w]
                 if roi.size > 0:  # Make sure ROI is not empty
+                    ocr_text = ""
                     try:
-                        # Run OCR on the detected region
-                        ocr_result = client.ocr_image(inference_input=roi, model="trocr")
-                        ocr_text = ocr_result.get("result", "")
+                        if use_easyocr and easyocr_reader:
+                            # Run EasyOCR on the detected region
+                            results = easyocr_reader.readtext(roi, detail=0)
+                            ocr_text = " ".join(results) if results else ""
+                        elif use_trocr:
+                            # Run TROCR via Roboflow API
+                            ocr_result = client.ocr_image(inference_input=roi, model="trocr")
+                            ocr_text = ocr_result.get("result", "")
                         
                         # Draw OCR text above the bbox
                         if ocr_text:
@@ -209,7 +242,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Roboflow inference with OCR on video")
     parser.add_argument("--duration", type=int, help="Limit processing to specified number of seconds")
     parser.add_argument("--font-size", type=float, default=1.0, help="Font size scale for annotation text (default: 1.0)")
+    parser.add_argument("--use-trocr", action="store_true", help="Use TROCR model (default: False)")
+    parser.add_argument("--use-easyocr", action="store_true", default=True, help="Use EasyOCR model (default: True)")
+    parser.add_argument("--trocr-ckpt", type=str, default="trocr-small-printed", 
+                       choices=["trocr-small-printed", "trocr-base-printed", "trocr-large-printed"],
+                       help="TROCR checkpoint (default: trocr-small-printed)")
+    parser.add_argument("--easyocr-ckpt", type=str, default="en", 
+                       help="EasyOCR language codes, comma-separated (default: en)")
     args = parser.parse_args()
+    
+    # Handle mutual exclusivity - if both are specified, prefer the one that's explicitly set
+    if args.use_trocr and args.use_easyocr:
+        # If both are set, use TROCR (since it's explicitly set)
+        args.use_easyocr = False
+    elif not args.use_trocr and not args.use_easyocr:
+        # If neither is set, default to EasyOCR
+        args.use_easyocr = True
     
     # Load environment variables
     from dotenv import load_dotenv
@@ -249,16 +297,24 @@ if __name__ == "__main__":
         if source_idx + 1 < len(video_abs_path.parts):
             category_folder = video_abs_path.parts[source_idx + 1]
     
+    # Create model descriptor for output filename
+    if args.use_trocr:
+        model_descriptor = f"trocr_{args.trocr_ckpt}"
+    else:
+        model_descriptor = f"easyocr_{args.easyocr_ckpt.replace(',', '-')}"
+    
     # Create output directory structure
     out_root = Path("data/HF_dataset/processed_videos/tracking")
     out_dir = (
         out_root
         / category_folder
         / video_path.stem
-        / f"{time_tag}_model=roboflow_tracker=ocr"
+        / f"{time_tag}_model=roboflow_ocr={model_descriptor}"
     )
     
     print(f"[+] Using model: {MODEL_ID}")
+    print(f"[+] OCR model: {'TROCR' if args.use_trocr else 'EasyOCR'}")
+    print(f"[+] OCR checkpoint: {args.trocr_ckpt if args.use_trocr else args.easyocr_ckpt}")
     print(f"[+] Input video: {INPUT_VIDEO}")
     print(f"[+] Output directory: {out_dir}")
     
@@ -269,5 +325,9 @@ if __name__ == "__main__":
         output_dir=str(out_dir),
         conf=0.4,
         font_size=args.font_size,
-        duration=args.duration
+        duration=args.duration,
+        use_trocr=args.use_trocr,
+        use_easyocr=args.use_easyocr,
+        trocr_ckpt=args.trocr_ckpt,
+        easyocr_ckpt=args.easyocr_ckpt
     ) 
