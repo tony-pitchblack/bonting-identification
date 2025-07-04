@@ -14,6 +14,7 @@ import argparse
 from pathlib import Path
 from typing import Optional
 from tqdm import tqdm
+from inference_sdk import InferenceHTTPClient, InferenceConfiguration
 
 # Silence inference warnings
 os.environ['QWEN_2_5_ENABLED'] = 'False'
@@ -44,12 +45,12 @@ def infer_video_with_roboflow(model_id: str,
         conf: Confidence threshold
         duration: Optional duration limit in seconds
     """
-    from inference import get_model
+    # Initialize HTTP client pointing to local inference server
+    client = InferenceHTTPClient(api_url="http://127.0.0.1:9001", api_key=api_key)
+    # Configure confidence threshold once for all requests
+    client.configure(InferenceConfiguration(confidence_threshold=conf))
 
-    # Load model using new inference API
-    model = get_model(model_id=model_id, api_key=api_key)
-    
-    print(f"[+] Loaded model: {model_id}")
+    print(f"[+] Initialized InferenceHTTPClient for model: {model_id}")
 
     # Open video
     cap = cv2.VideoCapture(input_video)
@@ -94,26 +95,21 @@ def infer_video_with_roboflow(model_id: str,
             if not ret:
                 break
                 
-            # Run inference using the new API
-            results = model.infer(frame, confidence=conf)
-            
-            # Handle the results properly - results is a list of ObjectDetectionInferenceResponse
-            predictions = []
-            for response in results:
-                if hasattr(response, 'predictions'):
-                    predictions.extend(response.predictions)
+            # Run inference via HTTP client
+            result = client.infer(frame, model_id=model_id)
+            predictions = result.get("predictions", [])
             
             # Manual annotation using OpenCV
             annotated = frame.copy()
             
             for pred in predictions:
-                # Extract prediction data (object-style access)
-                x = int(pred.x - pred.width/2)
-                y = int(pred.y - pred.height/2) 
-                w = int(pred.width)
-                h = int(pred.height)
-                class_name = pred.class_name
-                confidence = pred.confidence
+                # Extract prediction data (dictionary access)
+                x = int(pred["x"] - pred["width"] / 2)
+                y = int(pred["y"] - pred["height"] / 2)
+                w = int(pred["width"])
+                h = int(pred["height"])
+                class_name = pred.get("class", "")
+                confidence = pred.get("confidence", 0.0)
                     
                 # Draw rectangle
                 cv2.rectangle(annotated, (x, y), (x + w, y + h), (0, 255, 0), 2)
