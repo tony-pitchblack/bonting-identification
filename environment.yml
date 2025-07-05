@@ -8,17 +8,19 @@ dependencies:
   - streamlit
   - pytorch
   - torchvision
+  - opencv<=4.10.0.84 # supports h.264 codec (.mp4 read/write) for versions > 4.10
+  - ipywidgets
+  - ipykernel
+  - yt-dlp
+  - huggingface_hub
+  - python-dotenv
+  - pillow
+  - transformers
+  - supervision
   - pip:
-      - opencv-python
-      - ipywidgets
-      - ipykernel
       - ultralytics>=8.2.0
-      - yt-dlp
-      - huggingface_hub[hf_xet,cli]
       - kagglehub
       - "mlflow[databricks]>=3.1"
-      - python-dotenv
-      - pillow
-      - transformers
-      - roboflow
-      - supervision
+      - inference
+      - inference-sdk
+      - inference-cli
