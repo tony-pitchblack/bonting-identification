@@ -34,7 +34,7 @@ def infer_video_with_roboflow_ocr(model_id: str,
                                   output_dir: str,
                                   conf: float = 0.4,
                                   font_size: float = 1.0,
-                                  duration: Optional[int] = None,
+                                  duration = None,
                                   use_trocr: bool = False,
                                   use_easyocr: bool = True,
                                   trocr_ckpt: str = "trocr-small-printed",
@@ -51,7 +51,7 @@ def infer_video_with_roboflow_ocr(model_id: str,
         output_dir: Directory to save output
         conf: Confidence threshold
         font_size: Font size scale for annotation text (default: 1.0)
-        duration: Optional duration limit in seconds
+        duration: Duration limit - None (1 frame), 'full' (all frames), or float (seconds)
         use_trocr: Whether to use TROCR model
         use_easyocr: Whether to use EasyOCR model
         trocr_ckpt: TROCR checkpoint name
@@ -94,12 +94,16 @@ def infer_video_with_roboflow_ocr(model_id: str,
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    # Calculate frames to process if duration is specified
-    if duration is not None:
-        frames_to_process = min(int(duration * fps), total_frames)
-        print(f"[+] Processing first {duration} seconds ({frames_to_process} frames)")
-    else:
+    # Calculate frames to process based on duration parameter
+    if duration is None:
+        frames_to_process = 1
+        print(f"[+] Processing exactly 1 frame")
+    elif duration == 'full':
         frames_to_process = total_frames
+        print(f"[+] Processing full video ({frames_to_process} frames)")
+    else:
+        frames_to_process = min(int(float(duration) * fps), total_frames)
+        print(f"[+] Processing first {duration} seconds ({frames_to_process} frames)")
     
     # Create output directory
     output_path = Path(output_dir)
@@ -240,7 +244,7 @@ def create_test_video(output_path: str, duration: int = 5, font_size: float = 1.
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run Roboflow inference with OCR on video")
-    parser.add_argument("--duration", type=int, help="Limit processing to specified number of seconds")
+    parser.add_argument("--duration", type=str, default=None, help="Duration limit: None (1 frame), 'full' (all frames), or float (seconds)")
     parser.add_argument("--font-size", type=float, default=1.0, help="Font size scale for annotation text (default: 1.0)")
     parser.add_argument("--use-trocr", action="store_true", help="Use TROCR model (default: False)")
     parser.add_argument("--use-easyocr", action="store_true", default=True, help="Use EasyOCR model (default: True)")
@@ -250,6 +254,14 @@ if __name__ == "__main__":
     parser.add_argument("--easyocr-ckpt", type=str, default="en", 
                        help="EasyOCR language codes, comma-separated (default: en)")
     args = parser.parse_args()
+    
+    # Parse duration argument
+    duration = args.duration
+    if duration is not None and duration != 'full':
+        try:
+            duration = float(duration)
+        except ValueError:
+            raise ValueError(f"Invalid duration: {args.duration}. Must be None, 'full', or a float.")
     
     # Handle mutual exclusivity - if both are specified, prefer the one that's explicitly set
     if args.use_trocr and args.use_easyocr:
@@ -325,7 +337,7 @@ if __name__ == "__main__":
         output_dir=str(out_dir),
         conf=0.4,
         font_size=args.font_size,
-        duration=args.duration,
+        duration=duration,
         use_trocr=args.use_trocr,
         use_easyocr=args.use_easyocr,
         trocr_ckpt=args.trocr_ckpt,
