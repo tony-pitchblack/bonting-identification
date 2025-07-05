@@ -245,7 +245,7 @@ if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run Roboflow inference with OCR on video")
     parser.add_argument("--duration", type=str, default=None, help="Duration limit: None (1 frame), 'full' (all frames), or float (seconds)")
-    parser.add_argument("--font-size", type=float, default=1.0, help="Font size scale for annotation text (default: 1.0)")
+    parser.add_argument("--font-size", type=float, default=0.5, help="Font size scale for annotation text (default: 1.0)")
     parser.add_argument("--use-trocr", action="store_true", help="Use TROCR model (default: False)")
     parser.add_argument("--use-easyocr", action="store_true", default=True, help="Use EasyOCR model (default: True)")
     parser.add_argument("--trocr-ckpt", type=str, default="trocr-small-printed", 
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     VERSION = 2
     MODEL_ID = f"{MODEL_NAME}/{VERSION}"
     
-    INPUT_VIDEO = "data/HF_dataset/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear merged 4 cuts.webm"
+    INPUT_VIDEO = Path(os.getenv("DEMO_VIDEO_PATH", ""))
     TEST_VIDEO = "test_video.mp4"
 
     # Check if input video exists, if not create a test video

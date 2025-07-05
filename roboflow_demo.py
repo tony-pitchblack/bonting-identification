@@ -197,7 +197,7 @@ if __name__ == "__main__":
     VERSION = 2
     MODEL_ID = f"{MODEL_NAME}/{VERSION}"
     
-    INPUT_VIDEO = "data/HF_dataset/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear merged 4 cuts.webm"
+    INPUT_VIDEO = Path(os.getenv("DEMO_VIDEO_PATH", ""))
     TEST_VIDEO = "test_video.mp4"
 
     # Check if input video exists, if not create a test video

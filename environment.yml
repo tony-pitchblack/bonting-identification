@@ -17,6 +17,7 @@ dependencies:
   - pillow
   - transformers
   - supervision
+  - easyocr
   - pip:
       - ultralytics>=8.2.0
       - kagglehub
