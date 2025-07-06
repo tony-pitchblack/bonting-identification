@@ -335,7 +335,7 @@ if __name__ == "__main__":
         api_key=API_KEY,
         input_video=INPUT_VIDEO,
         output_dir=str(out_dir),
-        conf=0.4,
+        conf=0.1,
         font_size=args.font_size,
         duration=duration,
         use_trocr=args.use_trocr,

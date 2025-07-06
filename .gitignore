@@ -7,6 +7,10 @@ tmp/
 mlruns/
 mlartifacts/
 
+# Submodules' folders & files
+## dl-ocr-bench
+log_demo_result.txt
+
 .vscode
 
 # Byte-compiled / optimized / DLL files

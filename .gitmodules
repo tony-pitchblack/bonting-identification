@@ -1,0 +1,3 @@
+[submodule "dl-ocr-bench"]
+	path = dl-ocr-bench
+	url = https://github.com/tony-pitchblack/dl-ocr-bench.git
