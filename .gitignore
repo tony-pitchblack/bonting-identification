@@ -10,6 +10,8 @@ mlartifacts/
 # Submodules' folders & files
 ## dl-ocr-bench
 log_demo_result.txt
+## mindocr
+inference_results/
 
 .vscode
 
