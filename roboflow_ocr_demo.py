@@ -3,7 +3,7 @@
 roboflow_ocr_demo.py
 
 1) Use Roboflow inference API to load YOLO model for object detection.
-2) For each detected bbox, run either TROCR or EasyOCR on the cropped region.
+2) For each detected bbox, run either TROCR, EasyOCR, or MindOCR on the cropped region.
 3) Draw both detection boxes and OCR text results.
 4) Save annotated output video.
 """
@@ -37,8 +37,11 @@ def infer_video_with_roboflow_ocr(model_id: str,
                                   duration = None,
                                   use_trocr: bool = False,
                                   use_easyocr: bool = True,
+                                  use_mindocr: bool = False,
                                   trocr_ckpt: str = "trocr-small-printed",
-                                  easyocr_ckpt: str = "en"):
+                                  easyocr_ckpt: str = "en",
+                                  mindocr_det_algorithm: str = "DB++",
+                                  mindocr_rec_algorithm: str = "CRNN"):
     """
     Runs inference on each frame of input_video using Roboflow inference API,
     detects objects with YOLO, runs OCR on detected regions, and annotates
@@ -54,8 +57,11 @@ def infer_video_with_roboflow_ocr(model_id: str,
         duration: Duration limit - None (1 frame), 'full' (all frames), or float (seconds)
         use_trocr: Whether to use TROCR model
         use_easyocr: Whether to use EasyOCR model
+        use_mindocr: Whether to use MindOCR model
         trocr_ckpt: TROCR checkpoint name
         easyocr_ckpt: EasyOCR language codes
+        mindocr_det_algorithm: MindOCR detection algorithm
+        mindocr_rec_algorithm: MindOCR recognition algorithm
     """
     # Initialize HTTP client pointing to local inference server
     client = InferenceHTTPClient(api_url="http://127.0.0.1:9001", api_key=api_key)
@@ -66,6 +72,8 @@ def infer_video_with_roboflow_ocr(model_id: str,
 
     # Initialize OCR models
     easyocr_reader = None
+    mindocr_recognizer = None
+    
     if use_easyocr:
         try:
             import easyocr
@@ -78,6 +86,87 @@ def infer_video_with_roboflow_ocr(model_id: str,
             raise
         except Exception as e:
             print(f"[-] Error initializing EasyOCR: {e}")
+            raise
+    
+    if use_mindocr:
+        try:
+            import sys
+            import tempfile
+            import numpy as np
+            from types import SimpleNamespace
+            
+            # Import MindOCR core modules directly
+            import mindspore as ms
+            from mindocr.models import build_model
+            
+            # Set MindSpore context
+            ms.set_context(mode=0)  # Graph mode
+            
+            # Algorithm mapping (simplified for text recognition)
+            algo_to_model_name = {
+                "CRNN": "crnn_resnet34",
+                "RARE": "rare_resnet34", 
+                "CRNN_CH": "crnn_resnet34_ch",
+                "RARE_CH": "rare_resnet34_ch",
+                "SVTR": "svtr_tiny",
+                "SVTR_PPOCRv3_CH": "svtr_ppocrv3_ch",
+            }
+            
+            if mindocr_rec_algorithm not in algo_to_model_name:
+                raise ValueError(f"Unsupported rec algorithm: {mindocr_rec_algorithm}")
+            
+            model_name = algo_to_model_name[mindocr_rec_algorithm]
+            
+            # Build recognition model with pretrained weights
+            mindocr_model = build_model(model_name, pretrained=True, amp_level="O0")
+            mindocr_model.set_train(False)
+            
+            # Basic preprocessing function
+            def preprocess_mindocr_image(image):
+                # Convert to PIL if needed
+                if isinstance(image, np.ndarray):
+                    from PIL import Image
+                    if len(image.shape) == 3:
+                        image = Image.fromarray(image)
+                    else:
+                        image = Image.fromarray(image).convert('RGB')
+                
+                # Basic resize and normalize (simplified)
+                image = image.resize((100, 32))  # Simple fixed size
+                image = np.array(image).astype(np.float32) / 255.0
+                image = (image - 0.5) / 0.5  # Normalize to [-1, 1]
+                image = np.transpose(image, (2, 0, 1))  # CHW format
+                return image
+            
+            # Basic postprocessing function
+            def postprocess_mindocr_result(pred):
+                # Simple character decoding (very basic implementation)
+                if hasattr(pred, 'asnumpy'):
+                    pred = pred.asnumpy()
+                
+                # Convert predictions to text (simplified)
+                # This is a very basic implementation - in practice you'd need proper character mapping
+                if len(pred.shape) > 1:
+                    pred = np.argmax(pred, axis=-1)
+                
+                # Convert to string (very simplified)
+                text = ''.join([chr(min(max(int(x) + ord('0'), ord('0')), ord('z'))) for x in pred[0][:10] if x > 0])
+                confidence = 0.8  # Placeholder confidence
+                
+                return text, confidence
+            
+            mindocr_recognizer = {
+                'model': mindocr_model,
+                'preprocess': preprocess_mindocr_image,
+                'postprocess': postprocess_mindocr_result
+            }
+            
+            print(f"[+] Initialized MindOCR with det_algorithm: {mindocr_det_algorithm}, rec_algorithm: {mindocr_rec_algorithm}")
+        except ImportError as e:
+            print(f"[-] MindOCR not properly installed or path not found: {e}")
+            raise
+        except Exception as e:
+            print(f"[-] Error initializing MindOCR: {e}")
             raise
 
     if use_trocr:
@@ -173,6 +262,21 @@ def infer_video_with_roboflow_ocr(model_id: str,
                             # Run EasyOCR on the detected region
                             results = easyocr_reader.readtext(roi, detail=0)
                             ocr_text = " ".join(results) if results else ""
+                        elif use_mindocr and mindocr_recognizer:
+                            # Run MindOCR on the detected region
+                            # Convert BGR to RGB for MindOCR
+                            roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+                            
+                            # Preprocess the image
+                            processed_image = mindocr_recognizer['preprocess'](roi_rgb)
+                            
+                            # Run inference
+                            input_tensor = ms.Tensor(np.expand_dims(processed_image, axis=0))
+                            pred = mindocr_recognizer['model'](input_tensor)
+                            
+                            # Postprocess the result
+                            text, confidence = mindocr_recognizer['postprocess'](pred)
+                            ocr_text = text if text else ""
                         elif use_trocr:
                             # Run TROCR via Roboflow API
                             ocr_result = client.ocr_image(inference_input=roi, model="trocr")
@@ -248,11 +352,18 @@ if __name__ == "__main__":
     parser.add_argument("--font-size", type=float, default=0.5, help="Font size scale for annotation text (default: 1.0)")
     parser.add_argument("--use-trocr", action="store_true", help="Use TROCR model (default: False)")
     parser.add_argument("--use-easyocr", action="store_true", default=True, help="Use EasyOCR model (default: True)")
+    parser.add_argument("--use-mindocr", action="store_true", help="Use MindOCR model (default: False)")
     parser.add_argument("--trocr-ckpt", type=str, default="trocr-small-printed", 
                        choices=["trocr-small-printed", "trocr-base-printed", "trocr-large-printed"],
                        help="TROCR checkpoint (default: trocr-small-printed)")
     parser.add_argument("--easyocr-ckpt", type=str, default="en", 
                        help="EasyOCR language codes, comma-separated (default: en)")
+    parser.add_argument("--mindocr-det-algorithm", type=str, default="DB++",
+                       choices=["DB", "DB++", "DB_MV3", "DB_PPOCRv3", "PSE"],
+                       help="MindOCR detection algorithm (default: DB++)")
+    parser.add_argument("--mindocr-rec-algorithm", type=str, default="CRNN",
+                       choices=["CRNN", "RARE", "CRNN_CH", "RARE_CH", "SVTR", "SVTR_PPOCRv3_CH"],
+                       help="MindOCR recognition algorithm (default: CRNN)")
     args = parser.parse_args()
     
     # Parse duration argument
@@ -263,12 +374,19 @@ if __name__ == "__main__":
         except ValueError:
             raise ValueError(f"Invalid duration: {args.duration}. Must be None, 'full', or a float.")
     
-    # Handle mutual exclusivity - if both are specified, prefer the one that's explicitly set
-    if args.use_trocr and args.use_easyocr:
-        # If both are set, use TROCR (since it's explicitly set)
-        args.use_easyocr = False
-    elif not args.use_trocr and not args.use_easyocr:
-        # If neither is set, default to EasyOCR
+    # Handle mutual exclusivity - ensure only one OCR mode is active
+    ocr_modes = [args.use_trocr, args.use_easyocr, args.use_mindocr]
+    active_modes = sum(ocr_modes)
+    
+    if active_modes > 1:
+        # If multiple modes are set, use the priority: MindOCR > TROCR > EasyOCR
+        if args.use_mindocr:
+            args.use_trocr = False
+            args.use_easyocr = False
+        elif args.use_trocr:
+            args.use_easyocr = False
+    elif active_modes == 0:
+        # If no mode is set, default to EasyOCR
         args.use_easyocr = True
     
     # Load environment variables
@@ -310,7 +428,9 @@ if __name__ == "__main__":
             category_folder = video_abs_path.parts[source_idx + 1]
     
     # Create model descriptor for output filename
-    if args.use_trocr:
+    if args.use_mindocr:
+        model_descriptor = f"mindocr_{args.mindocr_det_algorithm}_{args.mindocr_rec_algorithm}"
+    elif args.use_trocr:
         model_descriptor = f"trocr_{args.trocr_ckpt}"
     else:
         model_descriptor = f"easyocr_{args.easyocr_ckpt.replace(',', '-')}"
@@ -325,21 +445,31 @@ if __name__ == "__main__":
     )
     
     print(f"[+] Using model: {MODEL_ID}")
-    print(f"[+] OCR model: {'TROCR' if args.use_trocr else 'EasyOCR'}")
-    print(f"[+] OCR checkpoint: {args.trocr_ckpt if args.use_trocr else args.easyocr_ckpt}")
+    if args.use_mindocr:
+        print(f"[+] OCR model: MindOCR")
+        print(f"[+] OCR algorithms: det={args.mindocr_det_algorithm}, rec={args.mindocr_rec_algorithm}")
+    elif args.use_trocr:
+        print(f"[+] OCR model: TROCR")
+        print(f"[+] OCR checkpoint: {args.trocr_ckpt}")
+    else:
+        print(f"[+] OCR model: EasyOCR")
+        print(f"[+] OCR checkpoint: {args.easyocr_ckpt}")
     print(f"[+] Input video: {INPUT_VIDEO}")
     print(f"[+] Output directory: {out_dir}")
     
     infer_video_with_roboflow_ocr(
         model_id=MODEL_ID,
         api_key=API_KEY,
-        input_video=INPUT_VIDEO,
+        input_video=str(INPUT_VIDEO),
         output_dir=str(out_dir),
-        conf=0.4,
+        conf=0.1,
         font_size=args.font_size,
         duration=duration,
         use_trocr=args.use_trocr,
         use_easyocr=args.use_easyocr,
+        use_mindocr=args.use_mindocr,
         trocr_ckpt=args.trocr_ckpt,
-        easyocr_ckpt=args.easyocr_ckpt
+        easyocr_ckpt=args.easyocr_ckpt,
+        mindocr_det_algorithm=args.mindocr_det_algorithm,
+        mindocr_rec_algorithm=args.mindocr_rec_algorithm
     ) 

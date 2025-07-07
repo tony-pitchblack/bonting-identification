@@ -1,0 +1,9 @@
+export BIN_FOLDER="${HOME}/.local/bin" \
+       INIT_YES=yes \
+       CONDA_FORGE_YES=yes \
+       PREFIX_LOCATION="${HOME}/micromamba"
+"${SHELL}" <(curl -L micro.mamba.pm/install.sh) < /dev/null
+micromamba create -f environment.yml -y
+micromamba activate bonting-id
+./install_submodules.sh
+./manage_data/download_data_from_hf.sh

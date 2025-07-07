@@ -1,51 +1,30 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Check if micromamba environment is activated
-# if [[ -z "${CONDA_DEFAULT_ENV}" ]]; then
-#     echo "Error: No micromamba environment activated. Please run: micromamba activate bonting-id"
-#     exit 1
-# fi
-#
-# if [[ "${CONDA_DEFAULT_ENV}" != "bonting-id" ]]; then
-#     echo "Error: Wrong environment activated. Please run: micromamba activate bonting-id"
-#     exit 1
-# fi
-
-# Ensure the required micromamba environment is active (activate automatically if not)
-if [[ "${CONDA_DEFAULT_ENV}" != "bonting-id" ]]; then
-    if ! command -v micromamba &> /dev/null; then
-        echo "Error: micromamba command not found"
-        exit 1
-    fi
-    # Initialize micromamba for this shell session and activate the environment
-    eval "$(micromamba shell hook -s bash)"
-    micromamba activate bonting-id
-fi
-
-# Determine script directory to reliably locate the project root
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 PROJECT_ROOT="${SCRIPT_DIR}/.."
 
-# Load environment variables from .env
-set -a
-source "${PROJECT_ROOT}/.env"
-set +a
-
-# Check if required environment variables are set
-if [ -z "$HF_TOKEN" ] || [ -z "$HF_REPO_ID" ]; then
-    echo "Error: HF_TOKEN and HF_REPO_ID must be set in .env file"
-    exit 1
+# load optional .env without clobbering existing vars
+ENV_FILE="${PROJECT_ROOT}/.env"
+if [[ -f "$ENV_FILE" ]]; then
+  while IFS='=' read -r k v; do
+    [[ $k =~ ^\s*# ]] && continue
+    [[ -z $k ]]          && continue
+    [[ -z ${!k:-} ]] && export "$k=$v"
+  done < "$ENV_FILE"
 fi
 
-# Create data directory if it doesn't exist
-DATA_DIR="${PROJECT_ROOT}/data/HF_dataset"
-mkdir -p "${DATA_DIR}"
+# mandatory vars
+: "${HF_TOKEN?Missing HF_TOKEN}"
+: "${HF_REPO_ID?Missing HF_REPO_ID}"
 
-# Download data directory
-echo "Downloading data from $HF_REPO_ID..."
+DATA_DIR="${PROJECT_ROOT}/data/HF_dataset"
+mkdir -p "$DATA_DIR"
+
+echo "Downloading data from $HF_REPO_ID …"
 huggingface-cli download "$HF_REPO_ID" \
-    --repo-type dataset \
-    --local-dir "${DATA_DIR}" \
-    --token "$HF_TOKEN" \
-    --force-download
-echo "Data downloaded successfully to ${DATA_DIR}" 
+  --repo-type dataset \
+  --local-dir "$DATA_DIR" \
+  --token "$HF_TOKEN" \
+  --force-download
+echo "✔ Data saved to $DATA_DIR"

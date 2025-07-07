@@ -7,7 +7,7 @@ A streamlined workflow for downloading source videos, running object-tracking, a
 ```text
 .
 ├── README.md              # This file – general project info
-├── .env                   # HF_TOKEN and HF_REPO_ID credentials
+├── .env                   # HF_TOKEN and HF_REPO_ID credentials (skip if present in environment variables)
 ├── cookies.txt            # YouTube cookies (optional)
 ├── ckpt/                  # Cached YOLO weights (created automatically)
 ├── data/HF_dataset/                  # All project data
@@ -31,7 +31,12 @@ micromamba create -f environment.yml
 > **Important:** Pip wheels for OpenCV do not ship with the H.264 codec required to read/write `.mp4` files.  
 > This project therefore pins the conda package `opencv==4.10.0.84`, which includes H.264 support and is fully compatible with Roboflow's `supervision` and `inference` libraries.
 
-3. Configure credentials
+2. Download submodules and add their dependencies and install in editable mode with:
+```bash
+./install_submodules.sh
+```
+
+3. Configure credentials (skip this step if the credentials are already present in environment variables)
 
 Create `.env` in the project root:
 
@@ -41,6 +46,13 @@ HF_REPO_ID=your_username/your_repo_name
 ```
 
 If you need YouTube downloads, place a valid `cookies.txt` in the project root.
+
+## Scripts usage
+
+When running any *.sh script always activate environment first with:
+```bash
+micromamba activate bonting-id
+```
 
 ## Features
 
