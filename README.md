@@ -7,7 +7,7 @@ A streamlined workflow for downloading source videos, running object-tracking, a
 ```text
 .
 ├── README.md              # This file – general project info
-├── .env                   # HF_TOKEN and HF_REPO_ID credentials
+├── .env                   # HF_TOKEN and HF_REPO_ID credentials (skip if present in environment variables)
 ├── cookies.txt            # YouTube cookies (optional)
 ├── ckpt/                  # Cached YOLO weights (created automatically)
 ├── data/HF_dataset/                  # All project data
@@ -36,7 +36,7 @@ micromamba create -f environment.yml
 ./install_submodules.sh
 ```
 
-3. Configure credentials
+3. Configure credentials (skip this step if the credentials are already present in environment variables)
 
 Create `.env` in the project root:
 

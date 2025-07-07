@@ -17,3 +17,8 @@ If git submodules are empty, update them and add their dependencies to micromamb
 ```bash
 ./install_submodules.sh
 ```
+
+Make sure to download data before processing any requests or running any scripts requested by user:
+```bash
+./manage_data/download_data_from_hf.sh
+```
