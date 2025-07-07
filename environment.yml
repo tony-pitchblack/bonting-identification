@@ -25,3 +25,4 @@ dependencies:
       - inference
       - inference-sdk
       - inference-cli
+      - streamlit-tree-select
