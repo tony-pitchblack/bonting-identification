@@ -17,7 +17,3 @@ If git submodules are empty, update them and add their dependencies to micromamb
 ```bash
 ./install_submodules.sh
 ```
-
-# General agentic pipeline
-1. Make sure to execute script manage_data/download_data_from_hf.sh first to download data.
-2. Then execute any prompted scripts.
