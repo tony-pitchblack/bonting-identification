@@ -9,12 +9,6 @@ set -a
 source "${PROJECT_ROOT}/.env"
 set +a
 
-# Check if required environment variables are set
-if [ -z "$HF_TOKEN" ] || [ -z "$HF_REPO_ID" ]; then
-    echo "Error: HF_TOKEN and HF_REPO_ID must be set in .env file"
-    exit 1
-fi
-
 # Create data directory if it doesn't exist
 DATA_DIR="${PROJECT_ROOT}/data/HF_dataset"
 mkdir -p "${DATA_DIR}"
