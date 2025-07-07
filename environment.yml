@@ -2,7 +2,7 @@ name: bonting-id
 channels:
   - conda-forge
 dependencies:
-  - python=3.12
+  - python=3.11 # stay on 3.11 for shapely==1.8 in mindocr
   - pandas
   - tqdm
   - streamlit
