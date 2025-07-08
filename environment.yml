@@ -1,28 +1,31 @@
 name: bonting-id
 channels:
-  - conda-forge
+  - conda-forge            # only one channel → smaller, faster solves
 dependencies:
-  - python=3.11 # stay on 3.11 for shapely==1.8 in mindocr
+  - python =3.11
+  - pytorch-gpu =2.4.*     # CUDA build chosen automatically
+  - opencv >=4.10,<4.11
+  - torchvision
+  - transformers
+  - huggingface_hub
+  - cudatoolkit =11.8      # runtime libraries inside the env
+  - ipykernel
+  - ipywidgets
+  - numpy <2
   - pandas
   - tqdm
   - streamlit
-  - pytorch
-  - torchvision
-  - opencv<=4.10.0.84 # supports h.264 codec (.mp4 read/write) for versions > 4.10
-  - ipywidgets
-  - ipykernel
-  - yt-dlp
-  - huggingface_hub
-  - python-dotenv
-  - pillow
-  - transformers
-  - supervision
-  - easyocr
+  - imgaug
   - pip:
+      - numpy <2
+      - easyocr
       - ultralytics>=8.2.0
       - kagglehub
       - "mlflow[databricks]>=3.1"
+      - streamlit-tree-select
+      - openmim
+      - python-dotenv
+      - pillow
+      - yt-dlp
       - inference
       - inference-sdk
-      - inference-cli
-      - streamlit-tree-select

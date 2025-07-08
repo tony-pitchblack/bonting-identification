@@ -1,1 +1,0 @@
-echo $DUMMY_VAR
