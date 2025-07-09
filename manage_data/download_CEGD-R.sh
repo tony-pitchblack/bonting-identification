@@ -16,4 +16,4 @@ curl -L -o "${TMP_DIR}/cow-eartag-recognition-dataset.zip" \
 # Extract and move
 unzip "${TMP_DIR}/cow-eartag-recognition-dataset.zip" -d "${DATA_DIR}/"
 unzipped_dir=$(unzip -Z -1 "${TMP_DIR}/cow-eartag-recognition-dataset.zip" | head -1 | cut -d/ -f1)
-mv "${DATA_DIR}/${unzipped_dir}" "${DATA_DIR}/CEID-R"
+mv "${DATA_DIR}/${unzipped_dir}" "${DATA_DIR}/CEGD-R"
