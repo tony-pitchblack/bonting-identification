@@ -12,6 +12,8 @@ mlartifacts/
 log_demo_result.txt
 ## mindocr
 inference_results/
+## mmocr
+work_dirs/
 
 .vscode
 
