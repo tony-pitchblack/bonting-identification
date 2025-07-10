@@ -553,7 +553,7 @@ def cli() -> None:
     p.add_argument("--duration", type=float, help="Process only first N seconds of each video")
     p.add_argument("--class-name", default="cow", help="Name of object class to visualize in output video (default: cow)")
     p.add_argument("--n_debug_images", type=int, default=0, help="Save every Nth annotated frame for debugging TrOCR processing (0 = disabled)")
-    p.add_argument("--out-root", default="data/CEID-D/processed_videos/identification", help="Root output directory compliant with CEID-D dataset structure")
+    p.add_argument("--out-root", default="data/CEGD-D/processed_videos/identification", help="Root output directory compliant with CEGD-D dataset structure")
     p.add_argument("--gt-mapping", help="CSV with ground-truth id→ear_tag mapping to compute accuracy metrics")
     p.add_argument("--device", choices=["cpu", "cuda"], default="cpu", help="Device to use for TrOCR processing")
     args = p.parse_args()
