@@ -19,7 +19,8 @@ def parse_label_line(line):
     text = ','.join(parts[8:]) if len(parts) > 8 else parts[8]
     return coords, text
 
-def split_dataset_cegdr(cegdr_root='data/CEGD-R', output_dir='data/CEGD-R_train_test', split_ratio=0.8):
+def split_CEGR_dataset(cegdr_root: Path, output_dir: Path, split_ratio: float = 0.8):
+    # Ensure we are working with Path objects
     cegdr_root = Path(cegdr_root)
     output_dir = Path(output_dir)
     (output_dir / 'Image' / 'train').mkdir(parents=True, exist_ok=True)
@@ -68,15 +69,22 @@ def split_dataset_cegdr(cegdr_root='data/CEGD-R', output_dir='data/CEGD-R_train_
     print(f"Output directory: {output_dir}")
 
 def main():
+    repo_root = Path(__file__).resolve().parent.parent
+    default_input = repo_root / 'data' / 'CEGD-R'
+    default_output = repo_root / 'data' / 'CEGD-R_train_test'
+
     parser = argparse.ArgumentParser(description='Split CEGD-R dataset into train and test')
-    parser.add_argument('--input', '-i', required=False, 
-                       help='Path to CEGD-R dataset root (contains Images and Labels folders)', default='data/CEGD-R')
+    parser.add_argument('--input', '-i', required=False,
+                        help='Path to CEGD-R dataset root (contains Image and Labels folders)',
+                        default=str(default_input))
     parser.add_argument('--output', '-o', required=False,
-                       help='Output directory for converted dataset', default='data/CEGD-R_train_test')
+                        help='Output directory for converted dataset',
+                        default=str(default_output))
     parser.add_argument('--split-ratio', type=float, default=0.8,
-                       help='Train/test split ratio (default: 0.8)')
+                        help='Train/test split ratio (default: 0.8)')
     args = parser.parse_args()
-    split_dataset_cegdr(args.input, args.output, args.split_ratio)
+
+    split_CEGR_dataset(Path(args.input), Path(args.output), args.split_ratio)
 
 if __name__ == '__main__':
     main() 
