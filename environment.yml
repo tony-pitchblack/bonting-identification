@@ -1,31 +1,35 @@
+# environment.yml  (name it whatever you like)
 name: bonting-id
 channels:
-  - conda-forge            # only one channel → smaller, faster solves
+  - conda-forge          # one channel → deterministic, quick solves
 dependencies:
-  - python =3.11
-  - pytorch-gpu =2.4.*     # CUDA build chosen automatically
-  - opencv >=4.10,<4.11
-  - torchvision
-  - transformers
-  - huggingface_hub
-  - cudatoolkit =11.8      # runtime libraries inside the env
-  - ipykernel
-  - ipywidgets
-  - numpy <2
-  - pandas
-  - tqdm
-  - streamlit
-  - imgaug
+  # ── core ──────────────────────────────────────────────────────────
+
+  - python=3.11
   - pip:
-      - numpy <2
-      - easyocr
-      - ultralytics>=8.2.0
-      - kagglehub
-      - "mlflow[databricks]>=3.1"
-      - streamlit-tree-select
-      - openmim
-      - python-dotenv
-      - pillow
-      - yt-dlp
-      - inference
-      - inference-sdk
+    - --extra-index-url https://download.pytorch.org/whl/cu118
+    - torch==2.1.0+cu118
+    - torchvision==0.16.0+cu118
+    - transformers
+
+    # ── the rest of your stack ────────────────────────────────────────
+    # - opencv<4.10 # HACK: TODO: use >=4.10,<4.11 if conflict with `supervison`, `inference` or `inference-sdk`
+    - huggingface_hub
+    - ipykernel
+    - ipywidgets
+    - numpy<2
+    - pandas
+    - tqdm
+    - streamlit
+    - imgaug
+    - openmim
+    - easyocr
+    - ultralytics>=8.2.0
+    - kagglehub
+    - "mlflow[databricks]>=3.1"
+    - streamlit-tree-select
+    - python-dotenv
+    - pillow
+    - yt-dlp
+    - inference
+    - inference-sdk
