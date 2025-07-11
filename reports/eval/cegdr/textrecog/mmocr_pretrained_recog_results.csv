@@ -1,0 +1,11 @@
+model_config,ckpt,recog/word_acc,recog/word_acc_ignore_case,recog/word_acc_ignore_case_symbol,recog/char_recall,recog/char_precision
+abinet-vision_cegdr,abinet-vision_20e_st-an_mj,0.4495,0.4495,0.5718,0.7932,0.8205
+abinet_cegdr,abinet_20e_st-an_mj,0.4386,0.4386,0.575,0.7942,0.8288
+aster_cegdr,aster_resnet45_6e_st_mj,0.478,0.478,0.5265,0.7642,0.7605
+crnn_cegdr,crnn_mini-vgg_5e_mj,0.0809,0.0809,0.0912,0.1763,0.238
+master_cegdr,master_resnet31_12e_st_mj_sa,0.4994,0.4994,0.575,0.7837,0.7929
+nrtr_cegdr,nrtr_resnet31-1by8-1by4_6e_st_mj,0.4398,0.4398,0.522,0.7313,0.7304
+robustscanner_cegdr,robustscanner_resnet31_5e_st-sub_mj-sub_sa_real,0.4812,0.4812,0.5291,0.7683,0.7571
+sar_cegdr,sar_resnet31_parallel-decoder_5e_st-sub_mj-sub_sa_real,0.4851,0.4851,0.5343,0.7674,0.7396
+satrn_cegdr,satrn_shallow_5e_st_mj,0.5265,0.5265,0.5925,0.7845,0.7868
+svtr_cegdr,svtr-base_20e_st_mj,0.4392,0.4392,0.4586,0.8066,0.6569

@@ -1,5 +1,5 @@
 _base_ = [
-    'mmocr::textrecog/abinet/abinet-vision_20e_st-an_mj.py',
+    'mmocr::textrecog/robust_scanner/robustscanner_resnet31_5e_st-sub_mj-sub_sa_real.py',
     '../_base_/datasets/cegdr.py',
 ]
 
@@ -24,7 +24,7 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-# Evaluator settings (unchanged)
+# Evaluator settings
 val_evaluator = dict(
     _delete_=True,
     metrics=[
@@ -36,4 +36,4 @@ val_evaluator = dict(
 test_evaluator = val_evaluator
 
 # Working directory for outputs
-work_dir = 'work_dirs/abinet-vision_custom_cegdr' 
+work_dir = 'work_dirs/robustscanner_custom_cegdr' 
