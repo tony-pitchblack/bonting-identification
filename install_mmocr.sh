@@ -23,3 +23,5 @@ mim install mmocr/ # install with mim to use .mim/configs/ for pre-defined confi
 
 # install in editable mode w/ setuptools <64 
 # mim install -e mmocr/ 
+
+pip install -r mmocr/requirements/albu.txt 
