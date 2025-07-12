@@ -1,9 +1,10 @@
 _base_ = [
-    'mmocr::textrecog/aster/aster_resnet45_6e_st_mj.py',
+    'mmocr::textrecog/abinet/abinet_20e_st-an_mj.py',
     '../_base_/datasets/cegdr.py',
 ]
 
 # Dataset settings based on the shared CEGDR definition
+
 test_list = [_base_.cegdr_textrecog_test]  # type: ignore[attr-defined]
 
 test_dataset = dict(
@@ -35,5 +36,24 @@ val_evaluator = dict(
 
 test_evaluator = val_evaluator
 
+# Dataset settings for training
+train_list = [_base_.cegdr_textrecog_train]  # type: ignore[attr-defined]
+
+train_dataset = dict(
+    type='ConcatDataset',
+    datasets=train_list,
+    pipeline=_base_.train_pipeline,  # type: ignore[attr-defined]
+)
+
+# DataLoader for training
+train_dataloader = dict(
+    _delete_=True,
+    batch_size=96,
+    num_workers=18,
+    persistent_workers=True,
+    sampler=dict(type='DefaultSampler', shuffle=True),
+    dataset=train_dataset,
+)
+
 # Working directory for outputs
-work_dir = 'work_dirs/aster_custom_cegdr' 
+work_dir = 'work_dirs/abinet_custom_cegdr' 
