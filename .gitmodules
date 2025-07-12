@@ -1,6 +1,9 @@
 [submodule "dl-ocr-bench"]
 	path = dl-ocr-bench
 	url = https://github.com/tony-pitchblack/dl-ocr-bench.git
-[submodule "mmocr_repo"]
-	path = mmocr_repo
+[submodule "mmocr"]
+	path = mmocr
 	url = https://github.com/open-mmlab/mmocr.git
+[submodule "mmengine"]
+	path = mmengine
+	url = https://github.com/tony-pitchblack/mmengine
