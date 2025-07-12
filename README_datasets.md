@@ -12,3 +12,13 @@ python mmocr/tools/dataset_converters/prepare_dataset.py \
     --splits train test \
     --nproc 1
 ```
+
+### Create truncated CEGD-R
+After preparing the regular train/test splits as above, you can filter the
+recognition annotations so that only samples containing characters present in
+`mmocr/dicts/lower_english_digits_space.txt` are kept. This significantly
+reduces noise introduced by uncommon symbols.
+
+```bash
+python ./manage_data/truncate_CEGD-R_recog.py
+```
