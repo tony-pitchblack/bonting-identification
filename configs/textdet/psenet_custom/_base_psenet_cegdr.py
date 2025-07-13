@@ -1,8 +1,9 @@
 _base_ = [
-    'mmocr::textdet/dbnetpp/dbnetpp_resnet50-dcnv2_fpnc_1200e_icdar2015.py',
+    'mmocr::textdet/psenet/psenet_resnet50_fpnf_600e_icdar2015.py',
 ]
 
-# Define the test pipeline explicitly (copied from DBNet++ base config)
+# Test pipeline (copied from DBNet++ base config)
+
 test_pipeline = [
     dict(type='LoadImageFromFile', color_type='color_ignore_orientation'),
     dict(type='Resize', scale=(1333, 736), keep_ratio=True),
@@ -10,10 +11,11 @@ test_pipeline = [
     dict(
         type='PackTextDetInputs',
         meta_keys=('img_path', 'ori_shape', 'img_shape', 'scale_factor')
-    )
+    ),
 ]
 
-# Custom dataset configuration for CEGD-R text detection evaluation
+# CEGD-R text detection dataset (evaluation only)
+
 cegdr_test = dict(
     type='OCRDataset',
     data_root='data/CEGD-R_MMOCR/',
@@ -22,7 +24,8 @@ cegdr_test = dict(
     pipeline=test_pipeline,
 )
 
-# DataLoader for evaluation
+# Dataloaders
+
 val_dataloader = dict(
     _delete_=True,
     batch_size=1,
@@ -34,14 +37,12 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-# Evaluator settings for text detection
+# Evaluators
+
 val_evaluator = dict(
     _delete_=True,
     type='HmeanIOUMetric',
-    prefix='cegdr'
+    prefix='cegdr',
 )
 
-test_evaluator = val_evaluator
-
-# Working directory for outputs
-work_dir = 'work_dirs/dbnetpp_custom_cegdr' 
+test_evaluator = val_evaluator 

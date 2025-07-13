@@ -4,11 +4,22 @@ cegdr_truncated_textrecog_train = dict(
     type='OCRDataset',
     data_root=cegdr_truncated_textrecog_data_root,
     ann_file='textrecog_train_truncated.json',
-    pipeline=None)
+    pipeline=None,
+    metainfo=dict(mlflow=dict(name='CEGDR-R truncated – train', context='train')))
 
 cegdr_truncated_textrecog_test = dict(
     type='OCRDataset',
     data_root=cegdr_truncated_textrecog_data_root,
     ann_file='textrecog_test_truncated.json',
     test_mode=True,
-    pipeline=None) 
+    pipeline=None,
+    metainfo=dict(mlflow=dict(name='CEGDR-R truncated – test', context='test'))) 
+
+# 1. import the module so the class is registered
+custom_imports = dict(
+    imports=['mmocr_custom.hooks.mlflow_dataset_hook'],
+    allow_failed_imports=False,
+)
+
+# 2. enable the hook
+custom_hooks = [dict(type='MlflowDatasetHook', priority='LOW')]

@@ -50,3 +50,20 @@ train_dataloader = dict(
 )
 
 work_dir = 'work_dirs/abinet_custom_cegdr-truncated' 
+
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(
+        type='MLflowVisBackend',
+        tracking_uri='{{$MLFLOW_TRACKING_URI:http://localhost:5000}}',
+        exp_name='{{$MLFLOW_EXPERIMENT:mmocr}}',
+        artifact_suffix=('.json', '.log', '.py', 'yaml', '.pth'),
+    ),
+]
+
+visualizer = dict(
+    _delete_=True,                     # wipe the one from default_runtime
+    type='TextRecogLocalVisualizer',
+    vis_backends=vis_backends,         # <- **now uses your list**
+    name='visualizer',
+)
