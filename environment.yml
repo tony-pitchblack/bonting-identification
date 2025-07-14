@@ -6,6 +6,7 @@ dependencies:
   # ── core ──────────────────────────────────────────────────────────
 
   - python=3.11
+  - papermill
   - pip:
     - --extra-index-url https://download.pytorch.org/whl/cu118
     - torch==2.1.0+cu118
