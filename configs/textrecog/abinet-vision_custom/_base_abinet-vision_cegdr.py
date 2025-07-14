@@ -13,8 +13,8 @@ test_dataset = dict(
 
 val_dataloader = dict(
     _delete_=True,
-    batch_size=1,
-    num_workers=4,
+    batch_size=384,
+    num_workers=16,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=test_dataset,
@@ -25,10 +25,13 @@ test_dataloader = val_dataloader
 val_evaluator = dict(
     _delete_=True,
     metrics=[
-        dict(type='WordMetric', mode=['exact', 'ignore_case', 'ignore_case_symbol']),
-        dict(type='CharMetric'),
-    ]
-)
+        dict(
+            type='WordMetric',
+            mode=['exact', 'ignore_case', 'ignore_case_symbol'],
+            prefix='test'),        # <-- here
+        dict(type='CharMetric', prefix='test')
+    ])
+
 
 test_evaluator = val_evaluator
 
@@ -42,11 +45,30 @@ train_dataset = dict(
 
 train_dataloader = dict(
     _delete_=True,
-    batch_size=96,
-    num_workers=18,
+    batch_size=384,
+    num_workers=16,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
     dataset=train_dataset,
 )
 
 work_dir = 'work_dirs/abinet-vision_custom_cegdr' 
+
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(
+        type='MLflowVisBackend',
+        tracking_uri='{{$MLFLOW_TRACKING_URI:http://localhost:5000}}',
+        exp_name='mmocr_recog',
+        artifact_suffix=('.json', '.log', '.py', 'yaml', '.pth'),
+    ),
+]
+
+visualizer = dict(
+    _delete_=True,                     # wipe the one from default_runtime
+    type='TextRecogLocalVisualizer',
+    vis_backends=vis_backends,         # <- **now uses your list**
+    name='visualizer',
+)  
+
+auto_scale_lr = dict(base_batch_size=384 * 2) 

@@ -15,23 +15,34 @@ test_pipeline = [
     ),
 ]
 
-# Use the shared CEGDR test dataset and attach our pipeline
+# ---- TRAIN ------------------------------------------------------------------------------
 
-test_dataset = dict(
-    type='ConcatDataset',
-    datasets=[_base_.cegdr_textdet_test],  # type: ignore[attr-defined]
-    pipeline=test_pipeline,
+train_dataloader = dict(
+    _delete_=True,
+    batch_size=16,
+    num_workers=8,
+    persistent_workers=True,
+    sampler=dict(type='DefaultSampler', shuffle=True),
+    # Re-use the dataset from the base cfg and attach the training pipeline
+    dataset={
+        **_base_.cegdr_textdet_train,  # type: ignore[attr-defined]
+        'pipeline': _base_.train_pipeline,          # type: ignore[attr-defined]
+    },
 )
 
-# Dataloaders
+# ---- TEST / VAL -------------------------------------------------------------------------
 
 val_dataloader = dict(
     _delete_=True,
-    batch_size=1,
-    num_workers=4,
+    batch_size=16,
+    num_workers=8,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=test_dataset,
+    # Re-use the dataset from the base cfg and just attach the test pipeline
+    dataset={
+        **_base_.cegdr_textdet_test,  # type: ignore[attr-defined]
+        'pipeline': test_pipeline,          # type: ignore[attr-defined]
+    },
 )
 
 test_dataloader = val_dataloader
@@ -41,7 +52,28 @@ test_dataloader = val_dataloader
 val_evaluator = dict(
     _delete_=True,
     type='HmeanIOUMetric',
-    prefix='cegdr',
+    prefix='test',
 )
 
-test_evaluator = val_evaluator 
+test_evaluator = val_evaluator
+
+work_dir = 'work_dirs/dbnetpp_custom_cegdr'
+
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(
+        type='MLflowVisBackend',
+        tracking_uri='{{$MLFLOW_TRACKING_URI:http://localhost:5000}}',
+        exp_name='mmocr_det',
+        artifact_suffix=('.json', '.log', '.py', 'yaml', '.pth'),
+    ),
+]
+
+visualizer = dict(
+    _delete_=True,                     # wipe the one from default_runtime
+    type='TextDetLocalVisualizer',
+    vis_backends=vis_backends,         # <- **now uses your list**
+    name='visualizer',
+) 
+
+auto_scale_lr = dict(base_batch_size=16) 
