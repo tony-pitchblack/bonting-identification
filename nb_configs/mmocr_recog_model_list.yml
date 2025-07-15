@@ -1,0 +1,32 @@
+# MMOCR Recognition Model Configuration List
+# Uncomment the models you want to train
+
+# ABINet models (currently active)
+- configs/textrecog/abinet_custom/abinet_cegdr-truncated_dict-original.py
+
+# ABINet-Vision models
+# - configs/textrecog/abinet-vision_custom/abinet-vision_cegdr.py
+
+# ASTER models
+# - configs/textrecog/aster_custom/aster_cegdr.py
+
+# CRNN models
+# - configs/textrecog/crnn_custom/crnn_cegdr.py
+
+# MASTER models
+# - configs/textrecog/master_custom/master_cegdr.py
+
+# NRTR models
+# - configs/textrecog/nrtr_custom/nrtr_cegdr.py
+
+# RobustScanner models
+# - configs/textrecog/robustscanner_custom/robustscanner_cegdr.py
+
+# SAR models
+# - configs/textrecog/sar_custom/sar_cegdr.py
+
+# SATRN models
+# - configs/textrecog/satrn_custom/satrn_cegdr.py
+
+# SVTR models
+# - configs/textrecog/svtr_custom/svtr_cegdr.py 
