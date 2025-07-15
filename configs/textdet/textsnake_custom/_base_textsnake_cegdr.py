@@ -77,3 +77,6 @@ visualizer = dict(
 ) 
 
 auto_scale_lr = dict(base_batch_size=12) 
+
+# --- Fine-tuning schedule --------------------------------------------------
+train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=467, val_interval=5) 

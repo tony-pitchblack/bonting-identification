@@ -77,3 +77,27 @@ visualizer = dict(
 ) 
 
 auto_scale_lr = dict(base_batch_size=8) 
+
+# --- Early stopping ----------------------------------------------------------
+custom_hooks = [
+    dict(
+        type='EarlyStoppingHook',
+        monitor='test/hmean',   # <-- metric key to watch
+        rule='greater',            # 'greater' if higher is better, 'less' otherwise
+        patience=5,                # stop after 5 val epochs with no improvement
+        min_delta=0.01            # a change smaller than this counts as “no improvement”
+    )
+]
+
+# Tell the checkpoint hook to keep the best model of the same metric
+default_hooks = dict(
+    checkpoint=dict(
+        type='CheckpointHook',
+        interval=1,
+        save_best='test/hmean',  # same key as above
+        rule='greater'
+    )
+) 
+
+# --- Fine-tuning schedule --------------------------------------------------
+train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=236, val_interval=5) 
