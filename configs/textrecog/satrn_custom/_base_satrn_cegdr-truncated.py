@@ -53,6 +53,7 @@ train_dataloader = dict(
 )
 
 custom_hooks = [
+    dict(type='MlflowDatasetHook', priority='LOW'),
     dict(
         type='EarlyStoppingHook',
         monitor='recog/word_acc',
@@ -62,6 +63,12 @@ custom_hooks = [
 ]
 
 work_dir = 'work_dirs/satrn_custom_cegdr-truncated'
+
+# 1. import the module so the class is registered
+custom_imports = dict(
+    imports=['mmocr_custom.hooks.mlflow_dataset_hook'],
+    allow_failed_imports=False,
+)
 
 default_hooks = dict(
     checkpoint=dict(

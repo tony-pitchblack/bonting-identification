@@ -16,12 +16,3 @@ cegdr_truncated_textrecog_test = dict(
     pipeline=None,
     metainfo=dict(dataset_name='CEGDR-R_recog_trunc') 
 )
-
-# 1. import the module so the class is registered
-custom_imports = dict(
-    imports=['mmocr_custom.hooks.mlflow_dataset_hook'],
-    allow_failed_imports=False,
-)
-
-# 2. enable the hook
-custom_hooks = [dict(type='MlflowDatasetHook', priority='LOW')]

@@ -17,12 +17,3 @@ cegdr_textdet_test = dict(
     pipeline=None,
     metainfo=dict(dataset_name='CEGDR-R_det')
 )
-
-# 1. import the module so the class is registered
-custom_imports = dict(
-    imports=['mmocr_custom.hooks.mlflow_dataset_hook'],
-    allow_failed_imports=False,
-)
-
-# 2. enable the hook
-custom_hooks = [dict(type='MlflowDatasetHook', priority='LOW')]

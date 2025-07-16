@@ -8,13 +8,13 @@
 - configs/textdet/dbnet_custom/dbnet_cegdr.py
 
 # FCENet models
-- configs/textdet/fcenet_custom/fcenet_cegdr.py
+# - configs/textdet/fcenet_custom/fcenet_cegdr.py
 
 # PANet models (currently active)
 # - configs/textdet/panet_custom/panet_cegdr.py
 
 # PSENet models
-- configs/textdet/psenet_custom/psenet_cegdr.py
+# - configs/textdet/psenet_custom/psenet_cegdr.py
 
 # TextSnake models
-- configs/textdet/textsnake_custom/textsnake_cegdr.py 
+# - configs/textdet/textsnake_custom/textsnake_cegdr.py 
