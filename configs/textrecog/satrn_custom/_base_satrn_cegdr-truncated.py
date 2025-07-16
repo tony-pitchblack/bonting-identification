@@ -66,7 +66,10 @@ work_dir = 'work_dirs/satrn_custom_cegdr-truncated'
 
 # 1. import the module so the class is registered
 custom_imports = dict(
-    imports=['mmocr_custom.hooks.mlflow_dataset_hook'],
+    imports=[
+        'mmocr_custom.hooks.mlflow_dataset_hook',
+        'mmocr_custom.hooks.mlflow_checkpoint_hook',
+    ],
     allow_failed_imports=False,
 )
 

@@ -83,12 +83,23 @@ train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=118, val_interval=5)
 
 # 1. import the module so the class is registered
 custom_imports = dict(
-    imports=['mmocr_custom.hooks.mlflow_dataset_hook'],
+    imports=[
+        'mmocr_custom.hooks.mlflow_dataset_hook',
+        'mmocr_custom.hooks.mlflow_checkpoint_hook',
+    ],
     allow_failed_imports=False,
 )
 
 # --- Early stopping ----------------------------------------------------------
 custom_hooks = [
+    dict(
+        type='MlflowCheckpointHook',
+        interval=1,
+        save_best='test/hmean',
+        rule='greater',
+        tracking_uri='{{$MLFLOW_TRACKING_URI:http://localhost:5000}}',
+        exp_name='mmocr_det',
+    ),
     dict(type='MlflowDatasetHook', priority='LOW'),
     dict(
         type='EarlyStoppingHook',
@@ -98,13 +109,7 @@ custom_hooks = [
         min_delta=0.01            # a change smaller than this counts as “no improvement”
     ),
 ]
-
 # Tell the checkpoint hook to keep the best model of the same metric
 default_hooks = dict(
-    checkpoint=dict(
-        type='CheckpointHook',
-        interval=1,
-        save_best='test/hmean',  # same key as above
-        rule='greater'
-    )
-) 
+    checkpoint=None
+)
