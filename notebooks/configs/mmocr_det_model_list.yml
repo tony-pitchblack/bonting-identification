@@ -1,20 +1,22 @@
 # MMOCR Detection Model Configuration List
-# Uncomment the models you want to train
+# Optimized batch sizes - Adaptive binary search
+# Config files already updated with optimal batch sizes
 
-# DBNet++ models
-- configs/textdet/dbnetpp_custom/dbnetpp_cegdr.py
+# TEXTSNAKE models
+- configs/textdet/textsnake_custom/textsnake_cegdr.py
 
-# DBNet models  
-- configs/textdet/dbnet_custom/dbnet_cegdr.py
-
-# FCENet models
-- configs/textdet/fcenet_custom/fcenet_cegdr.py
-
-# PANet models
-- configs/textdet/panet_custom/panet_cegdr.py
-
-# PSENet models
+# PSENET models
 - configs/textdet/psenet_custom/psenet_cegdr.py
 
-# TextSnake models
-- configs/textdet/textsnake_custom/textsnake_cegdr.py 
+# PANET models
+- configs/textdet/panet_custom/panet_cegdr.py
+
+# DBNETPP models
+- configs/textdet/dbnetpp_custom/dbnetpp_cegdr.py
+
+# FCENET models
+- configs/textdet/fcenet_custom/fcenet_cegdr.py
+
+# DBNET models
+- configs/textdet/dbnet_custom/dbnet_cegdr.py
+
