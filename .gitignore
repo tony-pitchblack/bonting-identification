@@ -6,6 +6,7 @@ runs/
 tmp/
 mlruns/
 mlartifacts/
+notebooks/executed/
 
 # Submodules' folders & files
 ## dl-ocr-bench
