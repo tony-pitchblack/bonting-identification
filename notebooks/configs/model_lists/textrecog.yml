@@ -1,32 +1,32 @@
 # MMOCR Detection Model Configuration List
 # Uncomment the models you want to train
 
-# ABINET models
-- configs/textrecog/abinet_custom/abinet_cegdr_dict-extend.py
+# # ABINET models
+# - configs/textrecog/abinet_custom/abinet_cegdr-truncated_dict-original.py
 
-# ABINET-VISION models
-- configs/textrecog/abinet-vision_custom/abinet-vision_cegdr_dict-extend.py
+# # ABINET-VISION models
+# - configs/textrecog/abinet-vision_custom/abinet-vision_cegdr-truncated_dict-original.py
 
-# ASTER models
-- configs/textrecog/aster_custom/aster_cegdr_dict-unk.py
+# # ASTER models
+# - configs/textrecog/aster_custom/aster_cegdr_dict-unk.py
 
-# CRNN models
-- configs/textrecog/crnn_custom/crnn_cegdr_dict-extend.py
+# # CRNN models
+# - configs/textrecog/crnn_custom/crnn_cegdr-truncated_dict-original.py
 
-# MASTER models
-- configs/textrecog/master_custom/master_cegdr-truncated_dict-original.py
+# # MASTER models
+# - configs/textrecog/master_custom/master_cegdr-truncated_dict-original.py
 
-# NRTR models
-- configs/textrecog/nrtr_custom/nrtr_cegdr-truncated_dict-original.py
+# # NRTR models
+# - configs/textrecog/nrtr_custom/nrtr_cegdr-truncated_dict-original.py
 
-# ROBUSTSCANNER models
-- configs/textrecog/robustscanner_custom/robustscanner_cegdr_dict-extend.py
+# # ROBUSTSCANNER models
+# - configs/textrecog/robustscanner_custom/robustscanner_cegdr-truncated_dict-original.py
 
-# SAR models
-- configs/textrecog/sar_custom/sar_cegdr_dict-unk.py
+# # SAR models
+# - configs/textrecog/sar_custom/sar_cegdr_dict-unk.py
 
-# SATRN models
-- configs/textrecog/satrn_custom/satrn_cegdr-truncated_dict-original.py
+# # SATRN models
+# - configs/textrecog/satrn_custom/satrn_cegdr-truncated_dict-original.py
 
 # SVTR models
-# - configs/textrecog/svtr_custom/svtr_cegdr_dict-extend.py # TODO: fix zero metrics
+- configs/textrecog/svtr_custom/svtr_cegdr-truncated_dict-original.py

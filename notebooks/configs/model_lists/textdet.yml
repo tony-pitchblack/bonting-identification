@@ -1,33 +1,20 @@
 # MMOCR Detection Model Configuration List
 # Uncomment the models you want to train
 
-# SVTR models
-- configs/textrecog/svtr_custom/svtr_cegdr_dict-extend.py
+# DBNET models
+- configs/textdet/dbnet_custom/dbnet_cegdr.py
 
-# SAR models
-- configs/textrecog/sar_custom/sar_cegdr_dict-unk.py
+# DBNETPP models
+- configs/textdet/dbnetpp_custom/dbnetpp_cegdr.py
 
-# ROBUSTSCANNER models
-- configs/textrecog/robustscanner_custom/robustscanner_cegdr_dict-extend.py
+# FCENET models
+- configs/textdet/fcenet_custom/fcenet_cegdr.py
 
-# ABINET-VISION models
-- configs/textrecog/abinet-vision_custom/abinet-vision_cegdr_dict-extend.py
+# PANET models
+- configs/textdet/panet_custom/panet_cegdr.py
 
-# NRTR models
-- configs/textrecog/nrtr_custom/nrtr_cegdr-truncated_dict-original.py
+# PSENET models
+- configs/textdet/psenet_custom/psenet_cegdr.py
 
-# SATRN models
-- configs/textrecog/satrn_custom/satrn_cegdr-truncated_dict-original.py
-
-# ASTER models
-- configs/textrecog/aster_custom/aster_cegdr_dict-unk.py
-
-# CRNN models
-- configs/textrecog/crnn_custom/crnn_cegdr_dict-extend.py
-
-# MASTER models
-- configs/textrecog/master_custom/master_cegdr-truncated_dict-original.py
-
-# ABINET models
-- configs/textrecog/abinet_custom/abinet_cegdr_dict-extend.py
-
+# TEXTSNAKE models
+- configs/textdet/textsnake_custom/textsnake_cegdr.py
