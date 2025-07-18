@@ -5,29 +5,29 @@
 - configs/textrecog/svtr_custom/svtr_cegdr_dict-extend.py
 
 # SAR models
-# - configs/textrecog/sar_custom/sar_cegdr_dict-unk.py
+- configs/textrecog/sar_custom/sar_cegdr_dict-unk.py
 
 # ROBUSTSCANNER models
-# - configs/textrecog/robustscanner_custom/robustscanner_cegdr_dict-extend.py
+- configs/textrecog/robustscanner_custom/robustscanner_cegdr_dict-extend.py
 
 # ABINET-VISION models
-# - configs/textrecog/abinet-vision_custom/abinet-vision_cegdr_dict-extend.py
+- configs/textrecog/abinet-vision_custom/abinet-vision_cegdr_dict-extend.py
 
 # NRTR models
-# - configs/textrecog/nrtr_custom/nrtr_cegdr-truncated_dict-original.py
+- configs/textrecog/nrtr_custom/nrtr_cegdr-truncated_dict-original.py
 
 # SATRN models
-# - configs/textrecog/satrn_custom/satrn_cegdr-truncated_dict-original.py
+- configs/textrecog/satrn_custom/satrn_cegdr-truncated_dict-original.py
 
 # ASTER models
-# - configs/textrecog/aster_custom/aster_cegdr_dict-unk.py
+- configs/textrecog/aster_custom/aster_cegdr_dict-unk.py
 
 # CRNN models
-# - configs/textrecog/crnn_custom/crnn_cegdr_dict-extend.py
+- configs/textrecog/crnn_custom/crnn_cegdr_dict-extend.py
 
 # MASTER models
-# - configs/textrecog/master_custom/master_cegdr-truncated_dict-original.py
+- configs/textrecog/master_custom/master_cegdr-truncated_dict-original.py
 
 # ABINET models
-# - configs/textrecog/abinet_custom/abinet_cegdr_dict-extend.py
+- configs/textrecog/abinet_custom/abinet_cegdr_dict-extend.py
 
