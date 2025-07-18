@@ -1,4 +1,6 @@
 from __future__ import annotations
+import os
+from mlflow.tracking import MlflowClient
 
 # mmocr_custom/hooks/mlflow_checkpoint_hook.py
 # noqa: D401, E501
@@ -61,7 +63,7 @@ class MlflowCheckpointHook(CheckpointHook):
         tags: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
         artifact_location: Optional[str] = None,
-        artifact_subdir: str = "checkpoints",
+        artifact_subdir: str = "ckpt",
         *args: Any,
         **kwargs: Any,
     ) -> None:
@@ -110,12 +112,33 @@ class MlflowCheckpointHook(CheckpointHook):
     # Helper utilities
     # ---------------------------------------------------------------------
 
-    def _log_artifact(self, file_path: Optional[str]) -> None:
-        """Upload *file_path* as an artefact (master rank only)."""
+    def _log_model(self, runner, file_path: Optional[str]):
+        """Log *file_path* as an MLflow *model* (master rank only).
+
+        Requires MLflow ≥ 3 where the top-level ``mlflow.log_model`` API is
+        available. The checkpoint file is wrapped inside a minimal MLflow model
+        and stored under the run artefact directory ``<name>/`` where *name* is
+        the value of :pyattr:`_artifact_subdir` (default: ``ckpt``).
+        """
+
         if self.mlflow is None:  # Non-master ranks
-            return
-        if file_path and osp.isfile(file_path):
-            self.mlflow.log_artifact(file_path, artifact_path=self._artifact_subdir)
+            return None
+
+        if not (file_path and osp.isfile(file_path)):
+            return None
+
+        # Log the *runner.model* (a torch.nn.Module) together with the raw
+        # checkpoint file so we preserve the exact weights used during
+        # evaluation. ``extra_files`` allows attaching arbitrary files.
+
+        model_info = self.mlflow.pytorch.log_model(  # type: ignore[attr-defined]
+            pytorch_model=runner.model,
+            name=runner.cfg['model']['type'],
+            extra_files=[file_path] if file_path else None,
+            conda_env=os.path.join(os.path.dirname(__file__), "../../environment.yml"),
+        )
+
+        return model_info
 
     # ---------------------------------------------------------------------
     # Overridden checkpointing hooks
@@ -124,23 +147,79 @@ class MlflowCheckpointHook(CheckpointHook):
     def _save_checkpoint(self, runner) -> None:  # type: ignore[override]
         """Save the *latest* checkpoint and upload it to MLflow."""
         # Delegate to the parent implementation first.
+        print("Saving checkpoint")
         super()._save_checkpoint(runner)
 
         if is_main_process():
-            self._log_artifact(self.last_ckpt)
+            self._log_model(runner, self.last_ckpt)
 
     def _save_best_checkpoint(self, runner, metrics):  # type: ignore[override]
         """Save *best* checkpoints and upload them to MLflow."""
         # Let the parent do its full logic (select, delete, save, etc.) first.
+        print("Saving best checkpoint")
         super()._save_best_checkpoint(runner, metrics)
 
         if not is_main_process():
             return
 
         # Depending on configuration there may be one or multiple best paths.
+
+        models_info = []
         if hasattr(self, "best_ckpt_path") and self.best_ckpt_path is not None:
-            self._log_artifact(self.best_ckpt_path)
+            model_info = self._log_model(runner, self.best_ckpt_path)
+            models_info.append(model_info)
 
         if hasattr(self, "best_ckpt_path_dict"):
+            models_info = []
             for path in self.best_ckpt_path_dict.values():
-                self._log_artifact(path) 
+                model_info = self._log_model(runner, path)
+                models_info.append(model_info)
+
+        return models_info
+
+    # ---------------------------------------------------------------------
+    # Final model registration
+    # ---------------------------------------------------------------------
+
+    def after_val_epoch(self, runner, metrics):  # type: ignore[override]
+        """Register the best model at training end."""
+        # Only the main rank handles model registration.
+        if not is_main_process() or self.mlflow is None:
+            return
+
+        models_info = self._save_best_checkpoint(runner, metrics)
+
+        for model_info in models_info:
+            runner.logger.info(f"Registering model {model_info.name}")
+            # Proceed only after the final epoch has completed.
+            if runner.epoch < runner.max_epochs:
+                runner.logger.info(f"Not the last train epoch, skipping model registration")
+                return
+
+            # Determine the best checkpoint path.
+            best_path: Optional[str] = None
+            if hasattr(self, "best_ckpt_path") and self.best_ckpt_path is not None:
+                best_path = self.best_ckpt_path
+            elif hasattr(self, "best_ckpt_path_dict") and self.best_ckpt_path_dict:
+                best_path = next(iter(self.best_ckpt_path_dict.values()))
+
+            if best_path is None:
+                runner.logger.info(f"No best checkpoint found, skipping model registration")
+                return
+
+            # Build model name and tags from config and metrics.
+            cfg = runner.cfg  # type: ignore[attr-defined]
+            model_name = cfg['model']['type']  # type: ignore[index]
+            tags = {
+                'dataset_name': runner.train_dataloader.dataset.metainfo.get('dataset_name'),
+                'task_name': runner.train_dataloader.dataset.metainfo.get('task_name')
+            }
+            tags.update(metrics)
+
+            self.mlflow.register_model(
+                model_uri=model_info.model_uri,
+                name=model_name,
+                tags=tags,
+            ) 
+            
+            MlflowClient().set_registered_model_tag(model_name, "task_name", tags['task_name'])
