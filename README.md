@@ -28,15 +28,19 @@ A streamlined workflow for downloading source videos, running object-tracking, a
 micromamba create -f environment.yml
 ```
 
-> **Important:** Pip wheels for OpenCV do not ship with the H.264 codec required to read/write `.mp4` files.  
-> This project therefore pins the conda package `opencv==4.10.0.84`, which includes H.264 support and is fully compatible with Roboflow's `supervision` and `inference` libraries.
-
-2. Download submodules and add their dependencies and install in editable mode with:
+2. Install submodules and add their dependencies:
 ```bash
-./install_submodules.sh
+micromamba run -n bonting-id ./install_submodules.sh
 ```
 
-3. Configure credentials (skip this step if the credentials are already present in environment variables)
+3. Install mmocr and necessary libs: 
+```bash
+micromamba run -n bonting-id ./install_mmocr.sh
+```
+
+## Credentials / secrets usage
+
+Configure credentials (skip this step if the credentials are already present in environment variables)
 
 Create `.env` in the project root:
 
