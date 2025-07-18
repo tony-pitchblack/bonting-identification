@@ -56,7 +56,7 @@ custom_hooks = [
     dict(type='MlflowDatasetHook', priority='LOW'),
     dict(
         type='EarlyStoppingHook',
-        monitor='recog/word_acc',
+        monitor='test/word_acc',
         rule='greater',
         patience=3,
         min_delta=0.001)
@@ -77,7 +77,7 @@ default_hooks = dict(
     checkpoint=dict(
         type='CheckpointHook',
         interval=1,
-        save_best='recog/word_acc',
+        save_best='test/word_acc',
         rule='greater',
     )
 ) 

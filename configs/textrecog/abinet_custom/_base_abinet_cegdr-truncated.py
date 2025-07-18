@@ -7,7 +7,7 @@ _base_ = [
 
 val_dataloader = dict(
     _delete_=True,
-    batch_size=96,
+    batch_size=206,
     num_workers=16,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),
@@ -37,7 +37,7 @@ test_evaluator = val_evaluator
 
 train_dataloader = dict(
     _delete_=True,
-    batch_size=96,
+    batch_size=206,
     num_workers=16,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -67,7 +67,7 @@ visualizer = dict(
     name='visualizer',
 ) 
 
-auto_scale_lr = dict(base_batch_size=96 * 8) 
+auto_scale_lr = dict(base_batch_size=206 * 8) 
 
 # 1. import the module so the class is registered
 custom_imports = dict(
