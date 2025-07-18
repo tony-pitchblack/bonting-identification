@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 from mlflow.tracking import MlflowClient
+from pathlib import Path
 
 # mmocr_custom/hooks/mlflow_checkpoint_hook.py
 # noqa: D401, E501
@@ -212,7 +213,8 @@ class MlflowCheckpointHook(CheckpointHook):
             model_name = cfg['model']['type']  # type: ignore[index]
             tags = {
                 'dataset_name': runner.train_dataloader.dataset.metainfo.get('dataset_name'),
-                'task_name': runner.train_dataloader.dataset.metainfo.get('task_name')
+                'task_name': runner.train_dataloader.dataset.metainfo.get('task_name'),
+                'config_filename': Path(cfg.filename).name
             }
             tags.update(metrics)
 

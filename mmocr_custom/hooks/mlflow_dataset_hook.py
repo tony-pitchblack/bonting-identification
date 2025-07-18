@@ -18,7 +18,7 @@ import mlflow
 from mmengine.hooks import Hook
 from mmengine.registry import HOOKS
 from mmengine.dataset import ConcatDataset
-
+from pathlib import Path
 
 @HOOKS.register_module()
 class MlflowDatasetHook(Hook):
@@ -50,6 +50,12 @@ class MlflowDatasetHook(Hook):
         mlflow.log_input(ml_ds, context=context)
 
     def before_train(self, runner):
+        # Log cfg file name as a simple MLflow param
+        cfg = getattr(runner, 'cfg', None)
+        if cfg and getattr(cfg, 'filename', None):
+            cfg_name = Path(cfg.filename).name
+            mlflow.log_param("config_filename", cfg_name)
+
         self._log_dataset(runner.train_dataloader.dataset, context='training')
 
     def before_test(self, runner):
