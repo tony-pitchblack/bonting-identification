@@ -85,7 +85,8 @@ tmux new-session -d -s mmocr_det_full \
 
 ## BONUS: train 1 det, 1 recog, then ALL det, ALL recog
 ```bash
-sudo fuser -k /dev/nvidia* && tmux new-session -d -s mmocr_pipeline "\
+tmux new-session -d -s mmocr_pipeline "\
+  (fuser -k /dev/nvidia* || true) && \
   papermill mmocr_recog_cegdr_finetune_pretrained.ipynb \
     /dev/null \
     --kernel python3 --log-output \
@@ -104,6 +105,33 @@ sudo fuser -k /dev/nvidia* && tmux new-session -d -s mmocr_pipeline "\
     -p CONFIG_LIST 'notebooks/configs/model_lists/textdet.yml' && \
   papermill mmocr_recog_cegdr_finetune_pretrained.ipynb \
     /dev/null \
+    --kernel python3 --log-output \
+    -p SMOKE_TEST False \
+    -p NUM_MODELS None \
+    -p CONFIG_LIST 'notebooks/configs/model_lists/textrecog.yml' \
+"
+```
+
+## BONUS (w/notification): train 1 det, 1 recog, then ALL det, ALL recog
+```bash
+tmux new-session -d -s mmocr_pipeline "\
+  (fuser -k /dev/nvidia* || true) && \
+  ./notify.sh papermill mmocr_recog_cegdr_finetune_pretrained.ipynb /dev/null \
+    --kernel python3 --log-output \
+    -p SMOKE_TEST False \
+    -p NUM_MODELS 1 \
+    -p CONFIG_LIST 'notebooks/configs/model_lists/textrecog.yml' && \
+  ./notify.sh papermill mmocr_det_cegdr_finetune_pretrained.ipynb /dev/null \
+    --kernel python3 --log-output \
+    -p SMOKE_TEST False \
+    -p NUM_MODELS 1 \
+    -p CONFIG_LIST 'notebooks/configs/model_lists/textdet.yml' && \
+  ./notify.sh papermill mmocr_det_cegdr_finetune_pretrained.ipynb /dev/null \
+    --kernel python3 --log-output \
+    -p SMOKE_TEST False \
+    -p NUM_MODELS None \
+    -p CONFIG_LIST 'notebooks/configs/model_lists/textdet.yml' && \
+  ./notify.sh papermill mmocr_recog_cegdr_finetune_pretrained.ipynb /dev/null \
     --kernel python3 --log-output \
     -p SMOKE_TEST False \
     -p NUM_MODELS None \
