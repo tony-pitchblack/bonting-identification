@@ -9,7 +9,10 @@ mim install 'mmdet>=3.2.0,<3.4.0'
 
 # Install the custom version of mmengine
 git clone https://github.com/tony-pitchblack/mmengine.git mmengine
-mim install mmengine/
+cd mmengine
+git checkout tony-pitchblack/enhance-ckpt-logging
+mim install .
+cd ..
 
 ###### Install MMOCR ######
 # Install the stable version of mmocr
