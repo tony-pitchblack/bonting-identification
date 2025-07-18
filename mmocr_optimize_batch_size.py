@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+# NOTE: doesn't work - constanly skips batch sizes because of fake OOM when in fact just cannot find file
+# TODO: fix dict construction error:
+# 📋 Traceback (most recent call last):
+# 📋 raise_for_execution_errors(nb, output_path)
+# 📋 File "/home/bonting/micromamba/envs/bonting-id/lib/python3.11/site-packages/papermill/execute.py", line 251, in raise_for_execution_errors
+# 📋 raise error
+# 📋 papermill.exceptions.PapermillExecutionError:
+# 📋 KeyError                                  Traceback (most recent call last)
+# 📋 24 # Optionally, smoke test on 1 epoch
+# 📋 KeyError: 'configs/textrecog/svtr_custom/svtr_cegdr_dict-extend.py'
+
 """
 Comprehensive batch size optimization for all MMOCR detection models using real-time monitoring.
 
@@ -18,6 +29,8 @@ Features:
 - Progress tracking with timestamps and emojis
 - Stops immediately when optimal utilization is achieved
 """
+
+assert False, "TODO: fix dict construction error (see file Notes)"
 
 import subprocess
 import time
@@ -260,7 +273,7 @@ def test_batch_size_for_model(model_name, batch_size, models, config_list_file):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     cmd = [
         'papermill', 'mmocr_det_cegdr_finetune_pretrained.ipynb',
-        f'notebooks/executed/batch_test_{model_name}_{batch_size}_{timestamp}.ipynb',
+        '/dev/null',
         '--kernel', 'python3', '--log-output',
         '-p', 'SMOKE_TEST', 'True',
         '-p', 'NUM_MODELS', '1',
@@ -569,9 +582,16 @@ def main(configs_folder, single_model=None):
     except Exception as e:
         print(f"Error discovering configs: {e}")
         return
+    import re
     
-    # Create config list file
-    config_list_file = "notebooks/configs/mmocr_det_model_list.yml"
+    # HACK: hardcoded config list files for now
+    if re.search(r'det', configs_folder):
+        config_list_file = "notebooks/configs/mmocr_det_model_list.yml"
+    elif re.search(r'recog', configs_folder):
+        config_list_file = "notebooks/configs/mmocr_recog_model_list.yml"
+    else:
+        raise ValueError(f"Unknown task: {configs_folder}")
+    
     create_config_list_file(models, config_list_file)
     
     # Filter to single model if specified
@@ -652,7 +672,7 @@ def main(configs_folder, single_model=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Optimize MMOCR detection model batch sizes')
-    parser.add_argument('--configs_folder', required=True, help='Path to configs folder (e.g., configs/textdet/)')
+    parser.add_argument('--configs_folder', required=True, help='Path to configs folder (configs/textdet/ or configs/textrecog/)')
     parser.add_argument('model_name', nargs='?', help='Optional: specific model to optimize')
     
     args = parser.parse_args()
