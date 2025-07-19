@@ -1,5 +1,5 @@
 _base_ = [
-    'mmocr::textdet/panet/panet_resnet50_fpem-ffm_600e_icdar2017.py',
+    'mmocr::textdet/panet/panet_resnet50_fpem-ffm_600e_icdar1617.py',
     '../_base_/datasets/cegdr.py',  # shared dataset definition
 ]
 
@@ -19,7 +19,7 @@ test_pipeline = [
 
 train_dataloader = dict(
     _delete_=True,
-    batch_size=20,
+    batch_size=16,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -34,7 +34,7 @@ train_dataloader = dict(
 
 val_dataloader = dict(
     _delete_=True,
-    batch_size=20,
+    batch_size=16,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),
@@ -76,7 +76,7 @@ visualizer = dict(
     name='visualizer',
 ) 
 
-auto_scale_lr = dict(base_batch_size=20) 
+auto_scale_lr = dict(base_batch_size=16) 
 
 # --- Fine-tuning schedule --------------------------------------------------
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=30, val_interval=1) 

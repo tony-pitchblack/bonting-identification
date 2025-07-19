@@ -91,7 +91,7 @@ Full command:
 \`\`\`
 ${cmd_string}
 \`\`\`${tail_block}
-Log saved to: \`${log_file}\`
+Log saved to: \`'${log_file}'\`
 EOF
 
 ##############################################################################

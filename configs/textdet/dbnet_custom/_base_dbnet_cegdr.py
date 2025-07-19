@@ -19,7 +19,7 @@ test_pipeline = [
 
 train_dataloader = dict(
     _delete_=True,
-    batch_size=24,
+    batch_size=16,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -34,7 +34,7 @@ train_dataloader = dict(
 
 val_dataloader = dict(
     _delete_=True,
-    batch_size=24,
+    batch_size=16,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),
@@ -76,7 +76,7 @@ visualizer = dict(
     name='visualizer',
 ) 
 
-auto_scale_lr = dict(base_batch_size=24) 
+auto_scale_lr = dict(base_batch_size=16) 
 
 # --- Fine-tuning schedule --------------------------------------------------
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=236, val_interval=5) 

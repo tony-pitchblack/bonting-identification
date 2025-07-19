@@ -1,5 +1,5 @@
 _base_ = [
-    'mmocr::textdet/psenet/psenet_resnet50_fpnf_600e_icdar2015.py',
+    'mmocr::textdet/psenet/psenet_resnet50_fpnf_600e_icdar2012.py',
     '../_base_/datasets/cegdr.py',  # shared dataset definition
 ]
 
@@ -19,7 +19,7 @@ test_pipeline = [
 
 train_dataloader = dict(
     _delete_=True,
-    batch_size=15,
+    batch_size=12,
     num_workers=6,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -34,7 +34,7 @@ train_dataloader = dict(
 
 val_dataloader = dict(
     _delete_=True,
-    batch_size=15,
+    batch_size=12,
     num_workers=6,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),
@@ -76,7 +76,7 @@ visualizer = dict(
     name='visualizer',
 ) 
 
-auto_scale_lr = dict(base_batch_size=15 * 16) 
+auto_scale_lr = dict(base_batch_size=12 * 16) 
 
 # --- Fine-tuning schedule --------------------------------------------------
 train_cfg = dict(type='EpochBasedTrainLoop', max_epochs=118, val_interval=5) 
