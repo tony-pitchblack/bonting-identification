@@ -1,5 +1,5 @@
 _base_ = [
-    'mmocr::textdet/psenet/psenet_resnet50_fpnf_600e_icdar2012.py',
+    'mmocr::textdet/psenet/psenet_resnet50_fpnf_600e_icdar2017.py',
     '../_base_/datasets/cegdr.py',  # shared dataset definition
 ]
 

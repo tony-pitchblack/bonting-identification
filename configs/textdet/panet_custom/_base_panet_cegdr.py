@@ -1,5 +1,5 @@
 _base_ = [
-    'mmocr::textdet/panet/panet_resnet50_fpem-ffm_600e_icdar1617.py',
+    'mmocr::textdet/panet/panet_resnet50_fpem-ffm_600e_icdar2017.py',
     '../_base_/datasets/cegdr.py',  # shared dataset definition
 ]
 
