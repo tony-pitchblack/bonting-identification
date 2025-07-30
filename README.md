@@ -53,10 +53,17 @@ If you need YouTube downloads, place a valid `cookies.txt` in the project root.
 
 ## Scripts usage
 
-When running any *.sh script always activate environment first with:
-```bash
-micromamba activate bonting-id
-```
+* Manage the MLflow Model Registry with `mlflow_manage_models.py`:
+  ```bash
+  # Remove DBNet & PANet, then register the freshest checkpoints (all models)
+  python mlflow_manage_models.py \
+      --delete "DBNet,PANet" \
+      --experiment mmocr_det \
+      --register all \
+      --task textrecog
+  ```
+
+* When running any *.sh script always activate environment first with:
 
 ## Features
 
