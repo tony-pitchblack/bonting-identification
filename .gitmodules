@@ -3,7 +3,7 @@
 	url = https://github.com/tony-pitchblack/dl-ocr-bench.git
 [submodule "mmocr"]
 	path = mmocr
-	url = https://github.com/open-mmlab/mmocr.git
+	url = https://github.com/tony-pitchblack/mmocr.git
 [submodule "mmengine"]
 	path = mmengine
 	url = https://github.com/tony-pitchblack/mmengine
