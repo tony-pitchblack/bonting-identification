@@ -53,13 +53,22 @@ train_dataloader = dict(
 )
 
 custom_hooks = [
+    dict(
+        type='MlflowCheckpointHook',
+        interval=1,
+        save_best='test/word_acc',
+        rule='greater',
+        tracking_uri='{{$MLFLOW_TRACKING_URI:http://localhost:5000}}',
+        exp_name='mmocr_recog',
+    ),
     dict(type='MlflowDatasetHook', priority='LOW'),
     dict(
         type='EarlyStoppingHook',
-        monitor='test/word_acc',
-        rule='greater',
-        patience=3,
-        min_delta=0.001)
+        monitor='test/word_acc',   # <-- metric key to watch
+        rule='greater',            # 'greater' if higher is better, 'less' otherwise
+        patience=5,                # stop after 5 val epochs with no improvement
+        min_delta=0.01            # a change smaller than this counts as "no improvement"
+    ),
 ]
 
 work_dir = 'work_dirs/satrn_custom_cegdr-truncated'
@@ -73,14 +82,10 @@ custom_imports = dict(
     allow_failed_imports=False,
 )
 
+# Tell the checkpoint hook to keep the best model of the same metric
 default_hooks = dict(
-    checkpoint=dict(
-        type='CheckpointHook',
-        interval=1,
-        save_best='test/word_acc',
-        rule='greater',
-    )
-) 
+    checkpoint=None
+)
 
 vis_backends = [
     dict(type='LocalVisBackend'),
@@ -97,6 +102,6 @@ visualizer = dict(
     type='TextRecogLocalVisualizer',
     vis_backends=vis_backends,         # <- **now uses your list**
     name='visualizer',
-)  
+)
 
 auto_scale_lr = dict(base_batch_size=64 * 4) 
