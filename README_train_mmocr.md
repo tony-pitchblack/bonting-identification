@@ -94,7 +94,8 @@ tmux new-session -d -s mmocr_pipeline "\
     -p NUM_MODELS 1 \
     -p CONFIG_LIST 'notebooks/configs/model_lists/textrecog.yml' && \
   papermill mmocr_det_cegdr_finetune_pretrained.ipynb \
-     /dev/null \    --kernel python3 --log-output \
+    /dev/null \    
+    --kernel python3 --log-output \
     -p SMOKE_TEST False \
     -p NUM_MODELS 1 \
     -p CONFIG_LIST 'notebooks/configs/model_lists/textdet.yml' && \
