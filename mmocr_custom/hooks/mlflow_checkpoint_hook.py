@@ -214,7 +214,7 @@ class MlflowCheckpointHook(CheckpointHook):
             tags = {
                 'dataset_name': runner.train_dataloader.dataset.metainfo.get('dataset_name'),
                 'task_name': runner.train_dataloader.dataset.metainfo.get('task_name'),
-                'config_filename': Path(cfg.filename).name
+                'config_filename': cfg.filename
             }
             tags.update(metrics)
 
