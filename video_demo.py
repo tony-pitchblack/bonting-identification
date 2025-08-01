@@ -14,7 +14,7 @@ processed_root = Path(__file__).parent / "data" / "HF_dataset" / "processed_vide
 # Let the user choose which processed subfolder to browse (e.g. "tracking", "identification")
 subfolders = [d for d in processed_root.iterdir() if d.is_dir()]
 if not subfolders:
-    st.error("No subfolders found under data/HF_dataset/processed_videos.")
+    st.error("No subfolders found under data/bonting-identification/processed_videos.")
     st.stop()
 
 # Sort subfolders by name for consistent display

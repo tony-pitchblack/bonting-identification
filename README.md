@@ -10,10 +10,10 @@ A streamlined workflow for downloading source videos, running object-tracking, a
 ├── .env                   # HF_TOKEN and HF_REPO_ID credentials (skip if present in environment variables)
 ├── cookies.txt            # YouTube cookies (optional)
 ├── ckpt/                  # Cached YOLO weights (created automatically)
-├── data/HF_dataset/                  # All project data
+├── data/bonting-identification/                  # All project data
 │   ├── source_videos/     # Input videos grouped by themed folders
 │   └── tracking_videos/   # Tracking results (auto-generated)
-├── track_animals.py       # Runs YOLO + tracker and writes results into data/HF_dataset/tracking_videos/
+├── track_animals.py       # Runs YOLO + tracker and writes results into data/bonting-identification/tracking_videos/
 └── manage_data/           # Helper scripts for HF sync
     ├── README.md
     ├── download_data_from_hf.sh
@@ -76,9 +76,9 @@ If you need YouTube downloads, place a valid `cookies.txt` in the project root.
 
 ## Features
 
-* Download / upload the entire `data/HF_dataset/` folder with `manage_data/{download,upload}_data_from_hf.sh`.
+* Download / upload the entire `data/bonting-identification/` folder with `manage_data/{download,upload}_data_from_hf.sh`.
 * Run multi-object tracking on any video (YOLOv8 + ByteTrack or BoTSORT) with `track_animals.py`.
-* Results are written directly to `data/HF_dataset/tracking_videos/…` and include:
+* Results are written directly to `data/bonting-identification/tracking_videos/…` and include:
   * `processed_video.mp4` – annotated clip
   * `tracking_timestamps.csv` – per-ID visibility intervals
 * YOLO weights are cached under `ckpt/` to avoid re-downloads.
@@ -97,7 +97,7 @@ cd manage_data
 
 ```bash
 python track_animals.py \
-    --input data/HF_dataset/source_videos/youtube_segments/ \
+    --input data/bonting-identification/source_videos/youtube_segments/ \
     --mode detect \
     --tracker botsort
 ```
@@ -113,7 +113,7 @@ For script-specific details see `manage_data/README.md`.
 
 ## Interactive Video Demo
 
-After tracking videos are present under `data/HF_dataset/tracking_videos/`, launch the Streamlit viewer:
+After tracking videos are present under `data/bonting-identification/tracking_videos/`, launch the Streamlit viewer:
 
 ```bash
 micromamba activate bonting-id  # ensure the env is active

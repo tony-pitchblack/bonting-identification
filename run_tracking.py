@@ -395,8 +395,8 @@ def main():
     
     parser.add_argument(
         "--output-dir",
-        default="data/HF_dataset/processed_videos/tracking/youtube_segments",
-        help="Output directory (default: data/HF_dataset/processed_videos/tracking/youtube_segments)"
+        default="data/bonting-identification/processed_videos/tracking/youtube_segments",
+        help="Output directory (default: data/bonting-identification/processed_videos/tracking/youtube_segments)"
     )
     
     args = parser.parse_args()

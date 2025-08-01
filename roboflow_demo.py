@@ -221,7 +221,7 @@ if __name__ == "__main__":
             category_folder = video_abs_path.parts[source_idx + 1]
     
     # Create output directory structure
-    out_root = Path("data/HF_dataset/processed_videos/tracking")
+    out_root = Path("data/bonting-identification/processed_videos/tracking")
     out_dir = (
         out_root
         / category_folder
