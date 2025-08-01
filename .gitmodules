@@ -4,6 +4,8 @@
 [submodule "mmocr"]
 	path = mmocr
 	url = https://github.com/tony-pitchblack/mmocr.git
+	branch = tony-pitchblack/fixes
 [submodule "mmengine"]
 	path = mmengine
 	url = https://github.com/tony-pitchblack/mmengine
+	branch = tony-pitchblack/enhance-ckpt-logging

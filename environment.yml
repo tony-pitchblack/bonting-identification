@@ -3,34 +3,33 @@ name: bonting-id
 channels:
   - conda-forge          # one channel → deterministic, quick solves
 dependencies:
-  # ── core ──────────────────────────────────────────────────────────
-
   - python=3.11
+
   - papermill
+  - mlflow
+  - ipykernel
+  - ipywidgets
   - pip:
     - --extra-index-url https://download.pytorch.org/whl/cu118
     - torch==2.1.0+cu118
     - torchvision==0.16.0+cu118
-    - transformers
+    # - transformers
 
-    # ── the rest of your stack ────────────────────────────────────────
-    # - opencv<4.10 # HACK: TODO: use >=4.10,<4.11 if conflict with `supervison`, `inference` or `inference-sdk`
-    - huggingface_hub
-    - ipykernel
-    - ipywidgets
+    # - huggingface_hub
     - numpy<2
-    - pandas
+    # - pandas
     - tqdm
-    - streamlit
-    - imgaug
-    - openmim
-    - easyocr
-    - ultralytics>=8.2.0
-    - kagglehub
-    - "mlflow[databricks]>=3.1"
-    - streamlit-tree-select
+    # - streamlit
+    # - imgaug
+    # - openmim
+    # - easyocr
+    # - ultralytics>=8.2.0
+    # - kagglehub
+    # - "mlflow[databricks]>=3.1"
+    # - streamlit-tree-select
+    # - pillow
+    # - yt-dlp
     - python-dotenv
-    - pillow
-    - yt-dlp
     - inference
     - inference-sdk
+    - openmim
