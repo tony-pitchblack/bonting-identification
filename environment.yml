@@ -15,7 +15,7 @@ dependencies:
     - torchvision==0.16.0+cu118
     # - transformers
 
-    # - huggingface_hub
+    - huggingface_hub[cli]
     - numpy<2
     # - pandas
     - tqdm

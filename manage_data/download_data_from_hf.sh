@@ -6,13 +6,10 @@ PROJECT_ROOT="${SCRIPT_DIR}/.."
 
 # load optional .env without clobbering existing vars
 ENV_FILE="${PROJECT_ROOT}/.env"
-if [[ -f "$ENV_FILE" ]]; then
-  while IFS='=' read -r k v; do
-    [[ $k =~ ^\s*# ]] && continue
-    [[ -z $k ]]          && continue
-    [[ -z ${!k:-} ]] && export "$k=$v"
-  done < "$ENV_FILE"
-fi
+source "$ENV_FILE"
+
+echo "HF_TOKEN: $HF_TOKEN"
+echo "HF_REPO_ID: $HF_REPO_ID"
 
 # mandatory vars
 : "${HF_TOKEN?Missing HF_TOKEN}"
