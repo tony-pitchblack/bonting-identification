@@ -192,9 +192,10 @@ class MlflowCheckpointHook(CheckpointHook):
 
         for model_info in models_info:
             runner.logger.info(f"Registering model {model_info.name}")
-            # Proceed only after the final epoch has completed.
-            if runner.epoch < runner.max_epochs:
-                runner.logger.info(f"Not the last train epoch, skipping model registration")
+            # Proceed only after training has ended (i.e. after the *final* epoch
+            # or when early stopping has been triggered).
+            if (runner.epoch < runner.max_epochs) and not getattr(runner.train_loop, 'stop_training', False):
+                runner.logger.info("Training not finished and early stopping not triggered, skipping model registration")
                 return
 
             # Determine the best checkpoint path.
@@ -214,9 +215,20 @@ class MlflowCheckpointHook(CheckpointHook):
             tags = {
                 'dataset_name': runner.train_dataloader.dataset.metainfo.get('dataset_name'),
                 'task_name': runner.train_dataloader.dataset.metainfo.get('task_name'),
-                'config_filename': cfg.filename
+                'config_filename': cfg.filename,
             }
-            tags.update(metrics)
+            # -----------------------------------------------------------------
+            # Record validation metrics on the *run* so they are indexed as
+            # proper metrics (rather than tags). This allows filtering via the
+            # `metrics.*` syntax in `mlflow.search_logged_models`.
+            # -----------------------------------------------------------------
+            if self.mlflow is not None:
+                numeric_metrics = {
+                    k: float(v) for k, v in metrics.items() if isinstance(v, (int, float))
+                }
+                if numeric_metrics:
+                    # Persist the metrics to the active run.
+                    self.mlflow.log_metrics(numeric_metrics)
 
             self.mlflow.register_model(
                 model_uri=model_info.model_uri,
