@@ -35,7 +35,7 @@ micromamba run -n bonting-id ./install_submodules.sh
 
 3. Install mmocr and necessary libs: 
 ```bash
-micromamba run -n bonting-id ./install_mmocr.sh
+micromamba run -n bonting-id ./install_mmlab.sh
 ```
 
 ## Credentials / secrets usage

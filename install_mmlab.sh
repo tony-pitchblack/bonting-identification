@@ -37,3 +37,7 @@ mim install mmocr/ # install with mim to use .mim/configs/ for pre-defined confi
 
 pip install -r mmocr/requirements/albu.txt 
 pip install "numpy<2" # have to reinstall to maintain opencv / mmcor compatibility
+
+###### Install MMPose ######
+
+mim install mmpose/ # assume cloned repo (e.g. with .gitmodules)

@@ -9,3 +9,6 @@
 	path = mmengine
 	url = https://github.com/tony-pitchblack/mmengine
 	branch = tony-pitchblack/enhance-ckpt-logging
+[submodule "mmpose"]
+	path = mmpose
+	url = https://github.com/open-mmlab/mmpose.git
