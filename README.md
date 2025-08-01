@@ -54,11 +54,20 @@ If you need YouTube downloads, place a valid `cookies.txt` in the project root.
 ## Scripts usage
 
 * Manage the MLflow Model Registry with `mlflow_manage_models.py`:
+  Re-register all models in 'mmocr_det' experiment
   ```bash
-  # Remove DBNet & PANet, then register the freshest checkpoints (all models)
   python mlflow_manage_models.py \
-      --delete "DBNet,PANet" \
       --experiment mmocr_det \
+      --delete all \
+      --register all \
+      --task textdet
+  ```
+
+  Re-register all models in 'mmocr_recog' experiment
+  ```bash
+  python mlflow_manage_models.py \
+      --experiment mmocr_recog \
+      --delete all \
       --register all \
       --task textrecog
   ```
