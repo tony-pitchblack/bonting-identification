@@ -1,0 +1,52 @@
+# Configuration for roboflow_ocr_demo.py
+# OCR Model Settings
+
+# Video Configuration
+video:
+  input_path: "data/HF_dataset/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear clipped.mp4"
+  test_video_duration: 5
+  test_video_name: "test_video.mp4"
+
+# MMOCR Configuration
+mmocr:
+  detection:
+    model_name: "DBNet"
+    model_version: "1"
+  recognition:
+    model_name: "SATRN"
+    model_version: "1"
+
+# TROCR Configuration
+trocr:
+  checkpoints:
+    - "trocr-small-printed"
+    - "trocr-base-printed"
+    - "trocr-large-printed"
+  default: "trocr-small-printed"
+
+# EasyOCR Configuration
+easyocr:
+  default_languages: "en"
+  supported_languages:
+    - "en"
+    - "ch_sim"
+    - "ch_tra"
+    - "fr"
+    - "de"
+    - "ja"
+    - "ko"
+
+# Default OCR Settings
+defaults:
+  font_size: 0.5
+  confidence_threshold: 0.1
+  use_mmocr: true
+  use_trocr: false
+  use_easyocr: false
+  duration: null  # null (1 frame), 'full' (all frames), or float (seconds)
+
+# Model Configuration
+model:
+  workspace: "cow-test-yeo0m"
+  model_name: "cows-gyup1"
+  version: 2 

@@ -6,16 +6,29 @@ roboflow_ocr_demo.py
 2) For each detected bbox, run either TROCR, EasyOCR, or MindOCR on the cropped region.
 3) Draw both detection boxes and OCR text results.
 4) Save annotated output video.
+
+Configuration:
+- Script reads settings from config_roboflow_ocr_demo.yml by default
+- Use --config to specify a different config file
+- Use --input-video to override the video path from config
+- Config includes video paths, model settings, OCR algorithms, and default parameters
+
+Dependencies:
+- PyYAML: pip install pyyaml
 """
 
 import os
 import cv2
 import datetime as dt
 import argparse
+import yaml
+import mlflow
 from pathlib import Path
-from typing import Optional
+from glob import glob
+from typing import Optional, Dict, Any
 from tqdm import tqdm
 from inference_sdk import InferenceHTTPClient, InferenceConfiguration
+from mlflow.tracking import MlflowClient
 
 # Silence inference warnings
 os.environ['QWEN_2_5_ENABLED'] = 'False'
@@ -28,20 +41,94 @@ os.environ['CORE_MODEL_GROUNDINGDINO_ENABLED'] = 'False'
 os.environ['CORE_MODEL_YOLO_WORLD_ENABLED'] = 'False'
 os.environ['CORE_MODEL_PE_ENABLED'] = 'False'
 
+def load_model_ckpt(name, version, file_regex="*"):
+    """Load model checkpoint from MLflow registry."""
+    ckpt_root = Path("ckpt/mmocr/")
+    model_path = ckpt_root / name / version
+    model_path.mkdir(parents=True, exist_ok=True)
+    
+    model_uri = f"models:/{name}/{version}"
+    _ = mlflow.pytorch.load_model(model_uri, dst_path=model_path)
+    
+    ckpt_paths = glob(f'{model_path}/extra_files/{file_regex}')
+    assert len(ckpt_paths) == 1, f"Expected 1 checkpoint file, got {len(ckpt_paths)}"
+    
+    return ckpt_paths[0]
+
+def download_config(model_name, model_version):
+    """Download model config from MLflow registry."""
+    client = MlflowClient()
+    mv = client.get_model_version(name=model_name, version=model_version)
+    run_id = mv.run_id
+    
+    config_path = mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path="config.py", 
+        dst_path=f"./ckpt/mmocr/{model_name}/{model_version}"
+    )
+    return config_path
+
+def load_config(config_path: str = "config_roboflow_ocr_demo.yml") -> Dict[str, Any]:
+    """Load configuration from YAML file."""
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return config
+    except FileNotFoundError:
+        print(f"Warning: Config file {config_path} not found. Using default values.")
+        return {
+            'video': {
+                'input_path': '',
+                'test_video_duration': 5,
+                'test_video_name': 'test_video.mp4'
+            },
+            'mmocr': {
+                'detection': {'model_name': 'DBNet', 'model_version': '1'},
+                'recognition': {'model_name': 'SATRN', 'model_version': '1'}
+            },
+            'trocr': {'default': 'trocr-small-printed'},
+            'easyocr': {'default_languages': 'en'},
+            'defaults': {
+                'font_size': 0.5,
+                'confidence_threshold': 0.1,
+                'use_mmocr': True,
+                'use_trocr': False,
+                'use_easyocr': False,
+                'duration': None
+            },
+            'model': {
+                'workspace': 'cow-test-yeo0m',
+                'model_name': 'cows-gyup1',
+                'version': 2
+            }
+        }
+    except Exception as e:
+        print(f"Error loading config file {config_path}: {e}")
+        raise
+
+# Load default configuration (will be reloaded with proper config path in main)
+CONFIG = load_config()
+MMOCR_DET_MODEL_NAME = CONFIG['mmocr']['detection']['model_name']
+MMOCR_RECOG_MODEL_NAME = CONFIG['mmocr']['recognition']['model_name']
+MMOCR_DET_MODEL_VERSION = CONFIG['mmocr']['detection']['model_version']
+MMOCR_RECOG_MODEL_VERSION = CONFIG['mmocr']['recognition']['model_version']
+
 def infer_video_with_roboflow_ocr(model_id: str,
                                   api_key: str,
                                   input_video: str,
                                   output_dir: str,
-                                  conf: float = 0.4,
-                                  font_size: float = 1.0,
-                                  duration = None,
-                                  use_trocr: bool = False,
-                                  use_easyocr: bool = True,
-                                  use_mmocr: bool = False,
-                                  trocr_ckpt: str = "trocr-small-printed",
-                                  easyocr_ckpt: str = "en",
-                                  mmocr_det_algorithm: str = "dbnetpp",
-                                  mmocr_rec_algorithm: str = "svtr-small"):
+                                  conf: float,
+                                  font_size: float,
+                                  duration,
+                                  use_trocr: bool,
+                                  use_easyocr: bool,
+                                  use_mmocr: bool,
+                                  trocr_ckpt: str,
+                                  easyocr_ckpt: str,
+                                  mmocr_det_model_name: str,
+                                  mmocr_recog_model_name: str,
+                                  mmocr_det_model_version: str,
+                                  mmocr_recog_model_version: str):
     """
     Runs inference on each frame of input_video using Roboflow inference API,
     detects objects with YOLO, runs OCR on detected regions, and annotates
@@ -60,8 +147,10 @@ def infer_video_with_roboflow_ocr(model_id: str,
         use_mmocr: Whether to use MMOCR model
         trocr_ckpt: TROCR checkpoint name
         easyocr_ckpt: EasyOCR language codes
-        mmocr_det_algorithm: MMOCR detection algorithm
-        mmocr_rec_algorithm: MMOCR recognition algorithm
+        mmocr_det_model_name: MMOCR detection model name
+        mmocr_recog_model_name: MMOCR recognition model name
+        mmocr_det_model_version: MMOCR detection model version
+        mmocr_recog_model_version: MMOCR recognition model version
     """
     # Initialize HTTP client pointing to local inference server
     client = InferenceHTTPClient(api_url="http://127.0.0.1:9001", api_key=api_key)
@@ -91,10 +180,21 @@ def infer_video_with_roboflow_ocr(model_id: str,
     if use_mmocr:
         try:
             from mmocr.apis import MMOCRInferencer
-            mmocr_reader = MMOCRInferencer(det=mmocr_det_algorithm,
-                                           rec=mmocr_rec_algorithm,
+            
+            # Load model checkpoints and configs using MLflow
+            det_ckpt_path = load_model_ckpt(mmocr_det_model_name, mmocr_det_model_version)
+            recog_ckpt_path = load_model_ckpt(mmocr_recog_model_name, mmocr_recog_model_version)
+            det_config_path = download_config(mmocr_det_model_name, mmocr_det_model_version)
+            recog_config_path = download_config(mmocr_recog_model_name, mmocr_recog_model_version)
+            
+            mmocr_reader = MMOCRInferencer(det=det_config_path,
+                                           det_weights=det_ckpt_path,
+                                           rec=recog_config_path,
+                                           rec_weights=recog_ckpt_path,
                                            device=None)
-            print(f"[+] Initialized MMOCR with det_algorithm: {mmocr_det_algorithm}, rec_algorithm: {mmocr_rec_algorithm}")
+            print(f"[+] Initialized MMOCR with det_model: {mmocr_det_model_name} v{mmocr_det_model_version}, rec_model: {mmocr_recog_model_name} v{mmocr_recog_model_version}")
+            print(f"[+] MMOCR det_weights: {det_ckpt_path}")
+            print(f"[+] MMOCR rec_weights: {recog_ckpt_path}")
         except ImportError:
             print("[-] MMOCR not installed. Install with: pip install mmocr")
             raise
@@ -135,7 +235,7 @@ def infer_video_with_roboflow_ocr(model_id: str,
     output_video_mp4 = output_path / "processed_video.mp4"
 
     # Create MP4 writer with avc1 codec
-    fourcc = cv2.VideoWriter_fourcc(*"avc1")
+    fourcc = cv2.VideoWriter.fourcc(*"avc1")
     out = cv2.VideoWriter(str(output_video_mp4), fourcc, fps, (width, height))
     
     if not out.isOpened():
@@ -159,6 +259,10 @@ def infer_video_with_roboflow_ocr(model_id: str,
             # Manual annotation using OpenCV
             annotated = frame.copy()
             
+            # Calculate text height for proper spacing (approximate)
+            text_height = int(font_size * 20)  # Approximate text height based on font_size
+            text_margin = max(5, int(text_height * 0.3))  # Margin between bbox and text
+
             for pred in predictions:
                 # Extract prediction data (dictionary access)
                 x = int(pred["x"] - pred["width"] / 2)
@@ -174,51 +278,78 @@ def infer_video_with_roboflow_ocr(model_id: str,
                 w = max(1, min(w, width - x))
                 h = max(1, min(h, height - y))
                 
-                # Draw rectangle
+                # Draw rectangle only (no class label)
                 cv2.rectangle(annotated, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 
-                # Draw class label with shadow
-                label = f"{class_name}: {confidence:.2f}"
-                # Draw shadow (black text slightly offset)
-                cv2.putText(annotated, label, (x + 2, y - 8), 
-                           cv2.FONT_HERSHEY_SIMPLEX, font_size, (0, 0, 0), 2)
-                # Draw main text (green)
-                cv2.putText(annotated, label, (x, y - 10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, font_size, (0, 255, 0), 2)
-                
-                # Extract ROI for OCR
+                # Extract ROI for OCR on all predictions
                 roi = frame[y:y+h, x:x+w]
                 if roi.size > 0:  # Make sure ROI is not empty
                     ocr_text = ""
+                    avg_confidence = 0.0
                     try:
                         if use_easyocr and easyocr_reader:
                             # Run EasyOCR on the detected region
-                            results = easyocr_reader.readtext(roi, detail=0)
-                            ocr_text = " ".join(results) if results else ""
+                            results = easyocr_reader.readtext(roi, detail=1)  # detail=1 to get confidence
+                            if results:
+                                # EasyOCR returns [(bbox, text, confidence), ...]
+                                texts = [result[1] for result in results]
+                                confidences = [result[2] for result in results]
+                                ocr_text = " ".join(texts)
+                                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
                         elif use_mmocr and mmocr_reader:
+                            # Run MMOCR on the detected region
                             roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
-                            mmocr_out = mmocr_reader(roi_rgb, batch_size=1, return_vis=False, save_vis=False)
-                            preds = mmocr_out.get("predictions", [])
-                            if preds:
-                                texts = preds[0].get("rec_texts", [])
-                                if texts:
-                                    ocr_text = " | ".join(texts)
+                            mmocr_result = mmocr_reader(roi_rgb, return_vis=False, save_vis=False)
+                            
+                            # Extract text and confidence from MMOCR result
+                            if mmocr_result and 'predictions' in mmocr_result:
+                                predictions_list = mmocr_result['predictions']
+                                if predictions_list:
+                                    pred_dict = predictions_list[0]  # First (and only) image
+                                    if 'rec_texts' in pred_dict:
+                                        texts = pred_dict['rec_texts']
+                                        rec_scores = pred_dict.get('rec_scores', [])
+                                        det_scores = pred_dict.get('det_scores', [])
+
+                                        if texts:
+                                            # Select the single text with highest rec_score (or first if no scores)
+                                            if rec_scores:
+                                                best_idx = int(max(range(len(texts)), key=lambda i: rec_scores[i]))
+                                                chosen_text = texts[best_idx]
+                                                chosen_rec_conf = rec_scores[best_idx]
+                                                chosen_det_conf = det_scores[best_idx] if det_scores else chosen_rec_conf
+                                            else:
+                                                chosen_text = texts[0]
+                                                chosen_rec_conf = 0.0
+                                                chosen_det_conf = 0.0
+
+                                            ocr_text = chosen_text
+
+                                            # Average det+rec confidence when available, else use rec confidence
+                                            if chosen_det_conf and chosen_rec_conf:
+                                                avg_confidence = (chosen_det_conf + chosen_rec_conf) / 2
+                                            else:
+                                                avg_confidence = chosen_rec_conf or chosen_det_conf
                         elif use_trocr:
                             # Run TROCR via Roboflow API
                             ocr_result = client.ocr_image(inference_input=roi, model="trocr")
                             ocr_text = ocr_result.get("result", "")
+                            # TROCR doesn't provide confidence scores, use a default high value
+                            avg_confidence = 0.9 if ocr_text else 0.0
                         
-                        # Draw OCR text above the bbox
+                        # Draw OCR text on the annotated frame
                         if ocr_text:
-                            # Position text above the detection box with spacing
-                            text_y = y - 50 if y > 50 else y + h + 30
-                            ocr_label = f"OCR: {ocr_text}"
+                            # Position text above or below the detection box with proper spacing
+                            if y > text_height + text_margin:
+                                text_y = y - text_margin
+                            else:
+                                text_y = y + h + text_height + text_margin
                             
                             # Draw shadow (black text slightly offset)
-                            cv2.putText(annotated, ocr_label, (x + 2, text_y + 2),
+                            cv2.putText(annotated, ocr_text, (x + 2, text_y + 2),
                                        cv2.FONT_HERSHEY_SIMPLEX, font_size, (0, 0, 0), 2)
                             # Draw main text (yellow)
-                            cv2.putText(annotated, ocr_label, (x, text_y),
+                            cv2.putText(annotated, ocr_text, (x, text_y),
                                        cv2.FONT_HERSHEY_SIMPLEX, font_size, (255, 255, 0), 2)
                     except Exception as e:
                         # If OCR fails, continue with next detection
@@ -242,7 +373,7 @@ def create_test_video(output_path: str, duration: int = 5, font_size: float = 1.
     width, height = 640, 480
     
     # Create MP4 writer with avc1 codec
-    fourcc = cv2.VideoWriter_fourcc(*"avc1")
+    fourcc = cv2.VideoWriter.fourcc(*"avc1")
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
     
     if not out.isOpened():
@@ -274,27 +405,34 @@ def create_test_video(output_path: str, duration: int = 5, font_size: float = 1.
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run Roboflow inference with OCR on video")
+    parser.add_argument("--config", type=str, default="config_roboflow_ocr_demo.yml", help="Path to YAML configuration file")
+    parser.add_argument("--input-video", type=str, help="Input video path (overrides config file)")
     parser.add_argument("--duration", type=str, default=None, help="Duration limit: None (1 frame), 'full' (all frames), or float (seconds)")
-    parser.add_argument("--font-size", type=float, default=0.5, help="Font size scale for annotation text (default: 1.0)")
-    parser.add_argument("--use-trocr", action="store_true", help="Use TROCR model (default: False)")
-    parser.add_argument("--use-easyocr", action="store_true", default=True, help="Use EasyOCR model (default: True)")
-    parser.add_argument("--use-mmocr", action="store_true", help="Use MMOCR model (default: False)")
-    parser.add_argument("--trocr-ckpt", type=str, default="trocr-small-printed", 
-                       choices=["trocr-small-printed", "trocr-base-printed", "trocr-large-printed"],
-                       help="TROCR checkpoint (default: trocr-small-printed)")
-    parser.add_argument("--easyocr-ckpt", type=str, default="en", 
-                       help="EasyOCR language codes, comma-separated (default: en)")
-    parser.add_argument("--mmocr-det-algorithm", type=str, default="DBNet", help="MMOCR detection algorithm name (default: DBNet)")
-    parser.add_argument("--mmocr-rec-algorithm", type=str, default="CRNN", help="MMOCR recognition algorithm name (default: CRNN)")
+    parser.add_argument("--font-size", type=float, default=CONFIG['defaults']['font_size'], help="Font size scale for annotation text (default: from config)")
+    parser.add_argument("--use-trocr", action="store_true", default=CONFIG['defaults']['use_trocr'], help="Use TROCR model (default: from config)")
+    parser.add_argument("--use-easyocr", action="store_true", default=CONFIG['defaults']['use_easyocr'], help="Use EasyOCR model (default: from config)")
+    parser.add_argument("--use-mmocr", action="store_true", default=CONFIG['defaults']['use_mmocr'], help="Use MMOCR model (default: from config)")
+    parser.add_argument("--trocr-ckpt", type=str, default=CONFIG['trocr']['default'], 
+                       choices=CONFIG['trocr'].get('checkpoints', ["trocr-small-printed", "trocr-base-printed", "trocr-large-printed"]),
+                       help="TROCR checkpoint (default: from config)")
+    parser.add_argument("--easyocr-ckpt", type=str, default=CONFIG['easyocr']['default_languages'], 
+                       help="EasyOCR language codes, comma-separated (default: from config)")
+    parser.add_argument("--mmocr-det-model-name", type=str, default=MMOCR_DET_MODEL_NAME, help="MMOCR detection model name (default: from config)")
+    parser.add_argument("--mmocr-recog-model-name", type=str, default=MMOCR_RECOG_MODEL_NAME, help="MMOCR recognition model name (default: from config)")
+    parser.add_argument("--mmocr-det-model-version", type=str, default=MMOCR_DET_MODEL_VERSION, help="MMOCR detection model version (default: from config)")
+    parser.add_argument("--mmocr-recog-model-version", type=str, default=MMOCR_RECOG_MODEL_VERSION, help="MMOCR recognition model version (default: from config)")
     args = parser.parse_args()
     
-    # Parse duration argument
-    duration = args.duration
+    # Reload configuration with user-specified config file
+    CONFIG = load_config(args.config)
+    
+    # Parse duration argument (priority: command line > config file)
+    duration = args.duration if args.duration is not None else CONFIG['defaults']['duration']
     if duration is not None and duration != 'full':
         try:
             duration = float(duration)
         except ValueError:
-            raise ValueError(f"Invalid duration: {args.duration}. Must be None, 'full', or a float.")
+            raise ValueError(f"Invalid duration: {duration}. Must be None, 'full', or a float.")
     
     # Handle mutual exclusivity - ensure only one OCR mode is active
     ocr_modes = [args.use_trocr, args.use_easyocr, args.use_mmocr]
@@ -320,21 +458,32 @@ if __name__ == "__main__":
     if not API_KEY:
         raise ValueError("ROBOFLOW_API_KEY environment variable not set")
     
-    # Configuration
-    WORKSPACE = "cow-test-yeo0m"
-    MODEL_NAME = "cows-gyup1"
-    VERSION = 2
+    # Configuration from config file
+    WORKSPACE = CONFIG['model']['workspace']
+    MODEL_NAME = CONFIG['model']['model_name']
+    VERSION = CONFIG['model']['version']
     MODEL_ID = f"{MODEL_NAME}/{VERSION}"
     
-    INPUT_VIDEO = Path(os.getenv("DEMO_VIDEO_PATH", ""))
-    TEST_VIDEO = "test_video.mp4"
+    # Determine input video path (priority: command line > config file)
+    if args.input_video:
+        INPUT_VIDEO = Path(args.input_video)
+    elif CONFIG['video']['input_path']:
+        INPUT_VIDEO = Path(CONFIG['video']['input_path'])
+    else:
+        INPUT_VIDEO = None
+    
+    TEST_VIDEO = CONFIG['video']['test_video_name']
 
     # Check if input video exists, if not create a test video
-    if not os.path.exists(INPUT_VIDEO):
-        print(f"Warning: Input video {INPUT_VIDEO} not found.")
+    if INPUT_VIDEO is None or not os.path.exists(INPUT_VIDEO):
+        if INPUT_VIDEO is not None:
+            print(f"Warning: Input video {INPUT_VIDEO} not found.")
+        else:
+            print("Warning: No input video specified in config or command line.")
+        
         if not os.path.exists(TEST_VIDEO):
-            create_test_video(TEST_VIDEO, duration=5, font_size=args.font_size)
-        INPUT_VIDEO = TEST_VIDEO
+            create_test_video(TEST_VIDEO, duration=CONFIG['video']['test_video_duration'], font_size=args.font_size)
+        INPUT_VIDEO = Path(TEST_VIDEO)
         print(f"Using test video: {INPUT_VIDEO}")
     
     # Create output directory structure similar to run_tracking.py
@@ -351,7 +500,11 @@ if __name__ == "__main__":
     
     # Create model descriptor for output filename
     if args.use_mmocr:
-        model_descriptor = f"mmocr_{args.mmocr_det_algorithm}_{args.mmocr_rec_algorithm}"
+        det_name = args.mmocr_det_model_name
+        rec_name = args.mmocr_recog_model_name
+        det_version = args.mmocr_det_model_version
+        rec_version = args.mmocr_recog_model_version
+        model_descriptor = f"mmocr_{det_name}_v{det_version}_{rec_name}_v{rec_version}"
     elif args.use_trocr:
         model_descriptor = f"trocr_{args.trocr_ckpt}"
     else:
@@ -366,10 +519,11 @@ if __name__ == "__main__":
         / f"{time_tag}_model=roboflow_ocr={model_descriptor}"
     )
     
+    print(f"[+] Using config file: {args.config}")
     print(f"[+] Using model: {MODEL_ID}")
     if args.use_mmocr:
         print(f"[+] OCR model: MMOCR")
-        print(f"[+] OCR algorithms: det={args.mmocr_det_algorithm}, rec={args.mmocr_rec_algorithm}")
+        print(f"[+] OCR models: det={args.mmocr_det_model_name} v{args.mmocr_det_model_version}, recog={args.mmocr_recog_model_name} v{args.mmocr_recog_model_version}")
     elif args.use_trocr:
         print(f"[+] OCR model: TROCR")
         print(f"[+] OCR checkpoint: {args.trocr_ckpt}")
@@ -379,19 +533,24 @@ if __name__ == "__main__":
     print(f"[+] Input video: {INPUT_VIDEO}")
     print(f"[+] Output directory: {out_dir}")
     
-    infer_video_with_roboflow_ocr(
-        model_id=MODEL_ID,
-        api_key=API_KEY,
-        input_video=str(INPUT_VIDEO),
-        output_dir=str(out_dir),
-        conf=0.1,
-        font_size=args.font_size,
-        duration=duration,
-        use_trocr=args.use_trocr,
-        use_easyocr=args.use_easyocr,
-        use_mmocr=args.use_mmocr,
-        trocr_ckpt=args.trocr_ckpt,
-        easyocr_ckpt=args.easyocr_ckpt,
-        mmocr_det_algorithm=args.mmocr_det_algorithm,
-        mmocr_rec_algorithm=args.mmocr_rec_algorithm
-    ) 
+    # Prepare all parameters from config and command line arguments
+    inference_params = {
+        'model_id': MODEL_ID,
+        'api_key': API_KEY,
+        'input_video': str(INPUT_VIDEO),
+        'output_dir': str(out_dir),
+        'conf': CONFIG['defaults']['confidence_threshold'],
+        'font_size': args.font_size,
+        'duration': duration,
+        'use_trocr': args.use_trocr,
+        'use_easyocr': args.use_easyocr,
+        'use_mmocr': args.use_mmocr,
+        'trocr_ckpt': args.trocr_ckpt,
+        'easyocr_ckpt': args.easyocr_ckpt,
+        'mmocr_det_model_name': args.mmocr_det_model_name,
+        'mmocr_recog_model_name': args.mmocr_recog_model_name,
+        'mmocr_det_model_version': args.mmocr_det_model_version,
+        'mmocr_recog_model_version': args.mmocr_recog_model_version
+    }
+    
+    infer_video_with_roboflow_ocr(**inference_params)
