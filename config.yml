@@ -1,3 +1,5 @@
 hf_repo_ids:
   - exponenta/bonting-identification
-  - exponenta/3d_cattle_demo
+  - exponenta/3d_cattle_demo:
+    - renders/cow_boxed/sliding_clip_120s_v2/case=default/render=image/front_upper
+    - renders/cow_boxed/sliding_clip_120s_v2/case=default/render=depth/front_upper
