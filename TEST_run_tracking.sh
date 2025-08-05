@@ -38,13 +38,13 @@ fi
 # Build the command
 if [[ "$ROBOFLOW_MODE" == true ]]; then
   python run_tracking.py \
-    'data/HF_dataset/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear merged 4 cuts.webm' \
+    'data/bonting-identification/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear merged 4 cuts.webm' \
     --roboflow-ckpt 'cow-test-yeo0m/cows-gyup1/2' \
     --class-name "$CLASS_NAME" \
     "${OTHER_ARGS[@]}"
 else
   python run_tracking.py \
-    'data/HF_dataset/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear merged 4 cuts.webm' \
+    'data/bonting-identification/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear merged 4 cuts.webm' \
     --roboflow-ckpt 'cow-test-yeo0m/cows-gyup1/2' \
     --class-name "$CLASS_NAME" \
     "${OTHER_ARGS[@]}"

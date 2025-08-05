@@ -3,7 +3,7 @@
 
 # Video Configuration
 video:
-  input_path: "data/HF_dataset/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear clipped.mp4"
+  input_path: "data/bonting-identification/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear clipped.mp4"
   test_video_duration: 5
   test_video_name: "test_video.mp4"
 

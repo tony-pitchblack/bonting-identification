@@ -511,7 +511,7 @@ if __name__ == "__main__":
         model_descriptor = f"easyocr_{args.easyocr_ckpt.replace(',', '-')}"
     
     # Create output directory structure
-    out_root = Path("data/HF_dataset/processed_videos/tracking_ear_tags")
+    out_root = Path("data/bonting-identification/processed_videos/tracking")
     out_dir = (
         out_root
         / category_folder

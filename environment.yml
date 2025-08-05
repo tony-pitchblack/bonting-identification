@@ -30,6 +30,4 @@ dependencies:
     # - pillow
     # - yt-dlp
     - python-dotenv
-    - inference
-    - inference-sdk
     - openmim

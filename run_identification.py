@@ -290,7 +290,7 @@ def process_video(
     device: str = "cpu",
     duration_s: float | None = None,
     n_debug_images: int = 0,
-    out_root: Path = Path("data/HF_dataset/processed_videos/identification"),
+    out_root: Path = Path("data/bonting-identification/processed_videos/identification"),
     gt_mapping_path: Path | None = None,
 ) -> None:
     print(f"\nProcessing video: {video_path.name}")
