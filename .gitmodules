@@ -12,3 +12,9 @@
 [submodule "mmpose"]
 	path = mmpose
 	url = https://github.com/open-mmlab/mmpose.git
+[submodule "data/bonting-identification"]
+	path = data/bonting-identification
+	url = git@hf.co:datasets/exponenta/bonting-identification
+[submodule "data/3d_cattle_demo"]
+	path = data/3d_cattle_demo
+	url = git@hf.co:datasets/exponenta/3d_cattle_demo

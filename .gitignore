@@ -1,6 +1,6 @@
 # Repo folders & files
 cookies.txt
-data/
+# data/
 ckpt/
 runs/
 tmp/
