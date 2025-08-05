@@ -2,215 +2,203 @@
 """
 roboflow_head_demo.py
 
-Minimal script demonstrating how to run a pretrained Roboflow model for cow-head
-(cattle-face) tracking on a video.
-
-Differences to roboflow_ocr_demo.py:
-- Uses model `cattle-face-detection-v2/5`.
-- Performs only object tracking and draws bounding boxes.
-- No OCR post-processing.
-
-Usage (example):
-    python roboflow_head_demo.py --input-video input.mp4 --output-dir results/
+Detect cow heads in a directory of images, compute distance using corresponding EXR depth maps, and save annotated images.
 """
 from pathlib import Path
 import argparse
 import os
-from typing import Optional
-
 import cv2
+import numpy as np
+import OpenEXR
+import Imath
+import array
+from tqdm import tqdm
+import yaml
 from inference_sdk import InferenceHTTPClient, InferenceConfiguration
+from dotenv import load_dotenv
+from datetime import datetime
 
 # -----------------------------------------------------------------------------
-# Core inference routine
+# Depth handling
 # -----------------------------------------------------------------------------
 
-def infer_video_with_roboflow_tracking(
+def read_exr_depth(filepath: Path) -> np.ndarray:
+    """Read single-channel depth data from an EXR file (returns meters)."""
+    exr = OpenEXR.InputFile(str(filepath))
+    dw = exr.header()["dataWindow"]
+    width = dw.max.x - dw.min.x + 1
+    height = dw.max.y - dw.min.y + 1
+
+    channels = exr.header()["channels"].keys()
+    channel = "Z" if "Z" in channels else ("R" if "R" in channels else list(channels)[0])
+
+    pt = Imath.PixelType(Imath.PixelType.FLOAT)
+    depth_str = exr.channel(channel, pt)
+    depth = np.array(array.array("f", depth_str), dtype=np.float32)
+    depth = depth.reshape((height, width))
+    return depth
+
+# -----------------------------------------------------------------------------
+# Annotation helpers
+# -----------------------------------------------------------------------------
+
+def annotate_image(img_bgr: np.ndarray, preds: list, depth: np.ndarray, font_scale: float) -> np.ndarray:
+    """Draw bounding boxes, center dot and distance text for each prediction."""
+    h, w = img_bgr.shape[:2]
+    for pred in preds:
+        x1 = int(pred["x"] - pred["width"] / 2)
+        y1 = int(pred["y"] - pred["height"] / 2)
+        x2 = x1 + int(pred["width"])
+        y2 = y1 + int(pred["height"])
+
+        cx = int(pred["x"])
+        cy = int(pred["y"])
+        if not (0 <= cx < w and 0 <= cy < h):
+            continue  # skip predictions falling outside frame
+
+        distance = float(depth[cy, cx])
+        label = pred.get("class", "cow-head")
+        text = f"{label} ({distance:.2f} m)"
+
+        cv2.rectangle(img_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.circle(img_bgr, (cx, cy), 4, (0, 0, 255), -1)
+
+        text_pos = (x1, max(0, y1 - 5))
+        # shadow
+        cv2.putText(
+            img_bgr,
+            text,
+            (text_pos[0] + 1, text_pos[1] + 1),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            (0, 0, 0),
+            2,
+            cv2.LINE_AA,
+        )
+        # actual text
+        cv2.putText(
+            img_bgr,
+            text,
+            text_pos,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            font_scale,
+            (0, 0, 255),
+            1,
+            cv2.LINE_AA,
+        )
+    return img_bgr
+
+# -----------------------------------------------------------------------------
+# Main processing routine
+# -----------------------------------------------------------------------------
+
+def process_images(
     model_id: str,
     api_key: str,
-    input_video: str,
-    output_dir: str,
-    api_url: str = "http://127.0.0.1:9001",
-    conf: float = 0.1,
-    iou_threshold: float = 0.3,
-    font_size: float = 0.5,
-    duration: Optional[str] = None,
+    img_dir: Path,
+    depth_dir: Path,
+    output_dir: Path,
+    api_url: str,
+    conf: float,
+    iou_threshold: float,
+    font_scale: float,
 ):
-    """Run cow-head tracking on a video and save an annotated copy."""
     client = InferenceHTTPClient(api_url=api_url, api_key=api_key)
     client.configure(InferenceConfiguration(confidence_threshold=conf, iou_threshold=iou_threshold))
 
-    cap = cv2.VideoCapture(input_video)
-    if not cap.isOpened():
-        raise RuntimeError(f"Cannot open video: {input_video}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    img_paths = sorted(img_dir.glob("*.png"))
 
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    processed_files = []
+    for img_path in tqdm(img_paths, desc="Processing images"):
+        depth_path = depth_dir / img_path.with_suffix(".exr").name
+        if not depth_path.exists():
+            continue
 
-    if duration is None:
-        frames_to_process = 1
-    elif duration == "full":
-        frames_to_process = total_frames
-    else:
-        frames_to_process = min(int(float(duration) * fps), total_frames)
+        img_bgr = cv2.imread(str(img_path))
+        if img_bgr is None:
+            continue
 
-    out_path = Path(output_dir)
-    out_path.mkdir(parents=True, exist_ok=True)
-    output_video = out_path / "processed_video.mp4"
+        preds = client.infer(img_bgr, model_id=model_id).get("predictions", [])
+        depth_map = read_exr_depth(depth_path)
+        annotated = annotate_image(img_bgr, preds, depth_map, font_scale)
 
-    fourcc = cv2.VideoWriter.fourcc(*"avc1")
-    writer = cv2.VideoWriter(str(output_video), fourcc, fps, (width, height))
-    if not writer.isOpened():
-        raise RuntimeError(f"Cannot open VideoWriter: {output_video}")
+        save_path = output_dir / img_path.name
+        cv2.imwrite(str(save_path), annotated)
+        processed_files.append(save_path)
 
-    processed = 0
-    while processed < frames_to_process:
-        ret, frame = cap.read()
-        if not ret:
-            break
+    # Compile video from processed images
+    if processed_files:
+        first_id = int(Path(processed_files[0]).stem.lstrip("0") or 0)
+        last_id = int(Path(processed_files[-1]).stem.lstrip("0") or 0)
+        video_path = output_dir / f"output-{first_id}-{last_id}.mp4"
 
-        result = client.infer(frame, model_id=model_id)
-        for pred in result.get("predictions", []):
-            x1 = int(pred["x"] - pred["width"] / 2)
-            y1 = int(pred["y"] - pred["height"] / 2)
-            x2 = x1 + int(pred["width"])
-            y2 = y1 + int(pred["height"])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        first_frame = cv2.imread(str(processed_files[0]))
+        height, width = first_frame.shape[:2]
+        fourcc = cv2.VideoWriter_fourcc(*"avc1")
+        writer = cv2.VideoWriter(str(video_path), fourcc, 30.0, (width, height))
 
-            label = pred.get("class", "")
-            if label:
-                cv2.putText(
-                    frame,
-                    label,
-                    (x1, max(0, y1 - 5)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    font_size,
-                    (255, 255, 0),
-                    2,
-                )
+        for frame_path in processed_files:
+            frame = cv2.imread(str(frame_path))
+            writer.write(frame)
+        writer.release()
 
-        writer.write(frame)
-        processed += 1
+# -----------------------------------------------------------------------------
+# Config loader
+# -----------------------------------------------------------------------------
 
-    cap.release()
-    writer.release()
+def load_config(config_path: str):
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
 
 # -----------------------------------------------------------------------------
 # CLI
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Cow head tracking with Roboflow")
+    parser = argparse.ArgumentParser(description="Cow head detection on image directory with depth")
     parser.add_argument("--config", type=str, default="config_roboflow_head_demo.yml", help="Path to YAML configuration file")
-    parser.add_argument("--input-video", type=str, help="Input video path (overrides config)")
-    parser.add_argument("--duration", type=str, default=None, help="Duration: None (1 frame), 'full', or seconds")
-    parser.add_argument("--font-size", type=float, default=None, help="Annotation font scale (overrides config)")
-    parser.add_argument("--conf", type=float, default=None, help="Confidence threshold (overrides config)")
-    parser.add_argument("--iou-threshold", type=float, default=None, help="IoU threshold for NMS (overrides config)")
-    parser.add_argument("--output-dir", type=str, default=None, help="Output directory (optional)")
+    parser.add_argument("--output-dir", type=str, default=None, help="Override output directory")
     args = parser.parse_args()
 
-    # ---------------------------------------------------------------------
-    # Configuration handling (reuse logic from roboflow_ocr_demo)
-    # ---------------------------------------------------------------------
-    from dotenv import load_dotenv
-    from roboflow_ocr_demo import load_config, create_test_video  # reuse existing helpers
-    import datetime as dt
+    cfg = load_config(args.config)
 
-    CONFIG = load_config(args.config)
+    img_dir = Path(cfg["input_img_dir"]).expanduser()
+    depth_dir = Path(cfg["input_depth_dir"]).expanduser()
 
-    # Determine configuration values (CLI overrides config)
-    duration = args.duration if args.duration is not None else CONFIG['defaults']['duration']
-    font_size = args.font_size if args.font_size is not None else CONFIG['defaults']['font_size']
-    conf_threshold = args.conf if args.conf is not None else CONFIG['defaults']['confidence_threshold']
-    iou_threshold = getattr(args, 'iou_threshold') if getattr(args, 'iou_threshold') is not None else CONFIG['defaults']['iou_threshold']
-    
-    if duration is not None and duration != 'full':
-        try:
-            duration = float(duration)
-        except ValueError:
-            raise ValueError(f"Invalid duration: {duration}. Must be None, 'full', or a float.")
+    font_scale = cfg["defaults"]["font_size"]
+    conf = cfg["defaults"]["confidence_threshold"]
+    iou_th = cfg["defaults"]["iou_threshold"]
 
-    # ---------------------------------------------------------------------
-    # Video input handling
-    # ---------------------------------------------------------------------
-    if args.input_video:
-        input_video_path = Path(args.input_video)
-    elif CONFIG['video']['input_path']:
-        input_video_path = Path(CONFIG['video']['input_path'])
-    else:
-        input_video_path = None
+    model_id = cfg["model"]["model_id"]
+    api_url = cfg["model"]["api_url"]
 
-    test_video_name = CONFIG['video']['test_video_name']
-
-    if input_video_path is None or not input_video_path.exists():
-        if input_video_path is not None:
-            print(f"Warning: Input video {input_video_path} not found.")
-        else:
-            print("Warning: No input video specified in config or CLI.")
-
-        if not Path(test_video_name).exists():
-            create_test_video(test_video_name, duration=CONFIG['video']['test_video_duration'], font_size=font_size)
-        input_video_path = Path(test_video_name)
-        print(f"Using test video: {input_video_path}")
-
-    # ---------------------------------------------------------------------
-    # Output directory handling (mirrors roboflow_ocr_demo structure)
-    # ---------------------------------------------------------------------
-    if args.output_dir:
-        out_dir = Path(args.output_dir)
-    else:
-        time_tag = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        video_abs = input_video_path.resolve()
-        
-        # Use remove_input_prefix from config to construct output path
-        remove_prefix = CONFIG['output'].get('remove_input_prefix', '')
-        video_path_str = str(video_abs)
-
-        if remove_prefix and remove_prefix in video_path_str:
-            # Strip everything up to (and including) the first occurrence of the prefix
-            relative_path = video_path_str.split(remove_prefix, 1)[1]
-        else:
-            # Fallback – just use the filename
-            relative_path = Path(video_path_str).name
-
-        # Ensure we treat it as a relative path (no leading slash)
-        relative_path = relative_path.lstrip('/')
-        
-        # Convert path to Path object and remove the file extension to make it a folder
-        relative_path_obj = Path(relative_path)
-        folder_path = relative_path_obj.with_suffix('')  # Remove extension
-        
-        out_root = Path(CONFIG['output']['base_dir'])
-        model_name = CONFIG['model']['model_id'].replace('/', '_')
-        out_dir = out_root / folder_path / f"{time_tag}_model={model_name}"
-
-    # Ensure env variable
     load_dotenv()
     api_key = os.getenv("ROBOFLOW_API_KEY")
     if not api_key:
         raise ValueError("ROBOFLOW_API_KEY environment variable not set")
 
-    # ---------------------------------------------------------------------
-    # Run inference
-    # ---------------------------------------------------------------------
-    model_id = CONFIG['model']['model_id']
-    api_url = CONFIG['model']['api_url']
+    if args.output_dir:
+        out_dir = Path(args.output_dir)
+    else:
+        time_tag = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        remove_prefix = cfg["output"].get("remove_input_prefix", "")
+        rel_path = str(img_dir)
+        if remove_prefix and remove_prefix in rel_path:
+            rel_path = rel_path.split(remove_prefix, 1)[1]
+        rel_path = rel_path.lstrip("/")
+        out_root = Path(cfg["output"]["base_dir"])
+        model_name = model_id.replace("/", "_")
+        out_dir = out_root / rel_path / f"{time_tag}_model={model_name}"
 
-    print(f"[+] Input video: {input_video_path}")
-    print(f"[+] Output directory: {out_dir}")
-    print(f"[+] Using model: {model_id}")
-
-    infer_video_with_roboflow_tracking(
+    process_images(
         model_id=model_id,
         api_key=api_key,
-        input_video=str(input_video_path),
-        output_dir=str(out_dir),
+        img_dir=img_dir,
+        depth_dir=depth_dir,
+        output_dir=out_dir,
         api_url=api_url,
-        conf=conf_threshold,
-        iou_threshold=iou_threshold,
-        font_size=font_size,
-        duration=duration,
+        conf=conf,
+        iou_threshold=iou_th,
+        font_scale=font_scale,
     )
