@@ -32,12 +32,13 @@ def infer_video_with_roboflow_tracking(
     output_dir: str,
     api_url: str = "http://127.0.0.1:9001",
     conf: float = 0.1,
+    iou_threshold: float = 0.3,
     font_size: float = 0.5,
     duration: Optional[str] = None,
 ):
     """Run cow-head tracking on a video and save an annotated copy."""
     client = InferenceHTTPClient(api_url=api_url, api_key=api_key)
-    client.configure(InferenceConfiguration(confidence_threshold=conf))
+    client.configure(InferenceConfiguration(confidence_threshold=conf, iou_threshold=iou_threshold))
 
     cap = cv2.VideoCapture(input_video)
     if not cap.isOpened():
@@ -107,6 +108,7 @@ if __name__ == "__main__":
     parser.add_argument("--duration", type=str, default=None, help="Duration: None (1 frame), 'full', or seconds")
     parser.add_argument("--font-size", type=float, default=None, help="Annotation font scale (overrides config)")
     parser.add_argument("--conf", type=float, default=None, help="Confidence threshold (overrides config)")
+    parser.add_argument("--iou-threshold", type=float, default=None, help="IoU threshold for NMS (overrides config)")
     parser.add_argument("--output-dir", type=str, default=None, help="Output directory (optional)")
     args = parser.parse_args()
 
@@ -123,6 +125,7 @@ if __name__ == "__main__":
     duration = args.duration if args.duration is not None else CONFIG['defaults']['duration']
     font_size = args.font_size if args.font_size is not None else CONFIG['defaults']['font_size']
     conf_threshold = args.conf if args.conf is not None else CONFIG['defaults']['confidence_threshold']
+    iou_threshold = getattr(args, 'iou_threshold') if getattr(args, 'iou_threshold') is not None else CONFIG['defaults']['iou_threshold']
     
     if duration is not None and duration != 'full':
         try:
@@ -161,13 +164,28 @@ if __name__ == "__main__":
     else:
         time_tag = dt.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         video_abs = input_video_path.resolve()
-        category_folder = 'unknown'
-        if 'source_videos' in video_abs.parts:
-            idx = video_abs.parts.index('source_videos')
-            if idx + 1 < len(video_abs.parts):
-                category_folder = video_abs.parts[idx + 1]
+        
+        # Use remove_input_prefix from config to construct output path
+        remove_prefix = CONFIG['output'].get('remove_input_prefix', '')
+        video_path_str = str(video_abs)
+
+        if remove_prefix and remove_prefix in video_path_str:
+            # Strip everything up to (and including) the first occurrence of the prefix
+            relative_path = video_path_str.split(remove_prefix, 1)[1]
+        else:
+            # Fallback – just use the filename
+            relative_path = Path(video_path_str).name
+
+        # Ensure we treat it as a relative path (no leading slash)
+        relative_path = relative_path.lstrip('/')
+        
+        # Convert path to Path object and remove the file extension to make it a folder
+        relative_path_obj = Path(relative_path)
+        folder_path = relative_path_obj.with_suffix('')  # Remove extension
+        
         out_root = Path(CONFIG['output']['base_dir'])
-        out_dir = out_root / category_folder / input_video_path.stem / f"{time_tag}_model={CONFIG['output']['model_tag']}"
+        model_name = CONFIG['model']['model_id'].replace('/', '_')
+        out_dir = out_root / folder_path / f"{time_tag}_model={model_name}"
 
     # Ensure env variable
     load_dotenv()
@@ -192,6 +210,7 @@ if __name__ == "__main__":
         output_dir=str(out_dir),
         api_url=api_url,
         conf=conf_threshold,
+        iou_threshold=iou_threshold,
         font_size=font_size,
         duration=duration,
     )

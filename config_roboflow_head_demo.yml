@@ -3,7 +3,7 @@
 
 # Video Configuration
 video:
-  input_path: "data/HF_dataset/source_videos/youtube_segments/Milking R Dairy - Nedap CowControl with the SmartTag Ear clipped.mp4"
+  input_path: "data/3d_cattle_demo/renders/cow_boxed/sliding_clip_120s_v3/case=default/render=image/front_upper/2025-08-04_203708/baseline-1-120.mp4"
   test_video_duration: 5
   test_video_name: "test_video_head_tracking.mp4"
 
@@ -15,10 +15,11 @@ model:
 # Default Head Tracking Settings
 defaults:
   font_size: 0.5
-  confidence_threshold: 0.1
+  confidence_threshold: 0.85
+  iou_threshold: 0.01  # IoU threshold for Non-Maximum Suppression
   duration: null  # null (1 frame), 'full' (all frames), or float (seconds)
 
 # Output Configuration
 output:
-  base_dir: "data/HF_dataset/processed_videos/tracking_heads"
-  model_tag: "roboflow_tracking_heads"
+  base_dir: "data/bonting-identification/processed_videos/tracking_heads"
+  remove_input_prefix: "data/"
