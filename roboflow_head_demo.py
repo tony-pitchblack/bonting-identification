@@ -45,6 +45,7 @@ def read_exr_depth(filepath: Path) -> np.ndarray:
 def annotate_image(img_bgr: np.ndarray, preds: list, depth: np.ndarray, font_scale: float) -> np.ndarray:
     """Draw bounding boxes, center dot and distance text for each prediction."""
     h, w = img_bgr.shape[:2]
+    coords_texts = []
     for pred in preds:
         x1 = int(pred["x"] - pred["width"] / 2)
         y1 = int(pred["y"] - pred["height"] / 2)
@@ -55,6 +56,7 @@ def annotate_image(img_bgr: np.ndarray, preds: list, depth: np.ndarray, font_sca
         cy = int(pred["y"])
         if not (0 <= cx < w and 0 <= cy < h):
             continue  # skip predictions falling outside frame
+        coords_texts.append(f"({cx}, {cy})")
 
         distance = float(depth[cy, cx])
         label = pred.get("class", "cow-head")
@@ -62,8 +64,34 @@ def annotate_image(img_bgr: np.ndarray, preds: list, depth: np.ndarray, font_sca
 
         cv2.rectangle(img_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.circle(img_bgr, (cx, cy), 4, (0, 0, 255), -1)
+        # Coordinate text inside bottom-left of bbox
+        coord_text = f"({cx}, {cy})"
+        ct_size, _ = cv2.getTextSize(coord_text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
+        ct_w, ct_h = ct_size
+        coord_x = max(0, min(w - ct_w, x1 + 2))
+        coord_y = min(h - 1, y2 - 2)
+        # shadow for coordinate text
+        cv2.putText(img_bgr, coord_text, (coord_x + 1, coord_y + 1), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), 2, cv2.LINE_AA)
+        cv2.putText(img_bgr, coord_text, (coord_x, coord_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1, cv2.LINE_AA)
 
-        text_pos = (x1, max(0, y1 - 5))
+        margin = 15  # gap between bbox and text in pixels
+        text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
+        text_w, text_h = text_size
+
+        # Determine y coordinate for text to keep it within frame
+        if y1 - margin - text_h >= 0:
+            # draw above the bbox
+            text_y = y1 - margin
+        elif y2 + margin + text_h <= h:
+            # draw below the bbox
+            text_y = y2 + margin + text_h
+        else:
+            # fallback to keep text inside frame
+            text_y = max(text_h, min(h - 1, y1))
+
+        text_x = max(0, min(x1, w - text_w))
+        text_pos = (text_x, text_y)
+
         # shadow
         cv2.putText(
             img_bgr,
@@ -86,6 +114,22 @@ def annotate_image(img_bgr: np.ndarray, preds: list, depth: np.ndarray, font_sca
             1,
             cv2.LINE_AA,
         )
+    # -----------------------------------------------------------------
+    # Display absolute coordinates of red centre point(s) bottom-left
+    # -----------------------------------------------------------------
+    if False:  # disabled global coordinate overlay
+        overlay_margin = 10
+        # Determine text height for spacing
+        _, text_height = cv2.getTextSize(coords_texts[0], cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)[0]
+        y_start = h - overlay_margin
+        for i, coord in enumerate(coords_texts):
+            pos = (overlay_margin, y_start - i * (text_height + 5))
+            # shadow
+            cv2.putText(img_bgr, coord, (pos[0] + 1, pos[1] + 1),
+                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), 2, cv2.LINE_AA)
+            # text
+            cv2.putText(img_bgr, coord, pos,
+                        cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1, cv2.LINE_AA)
     return img_bgr
 
 # -----------------------------------------------------------------------------
@@ -126,6 +170,8 @@ def process_images(
         save_path = output_dir / img_path.name
         cv2.imwrite(str(save_path), annotated)
         processed_files.append(save_path)
+        if len(processed_files) == 1:
+            print(f"First frame saved to: {save_path}")
 
     # Compile video from processed images
     if processed_files:
@@ -142,6 +188,7 @@ def process_images(
             frame = cv2.imread(str(frame_path))
             writer.write(frame)
         writer.release()
+        print(f"Video saved to: {video_path}")
 
 # -----------------------------------------------------------------------------
 # Config loader
