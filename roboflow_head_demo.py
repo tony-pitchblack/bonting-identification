@@ -13,6 +13,8 @@ import OpenEXR
 import Imath
 import array
 from tqdm import tqdm
+import json
+import math
 import yaml
 from inference_sdk import InferenceHTTPClient, InferenceConfiguration
 from dotenv import load_dotenv
@@ -38,11 +40,59 @@ def read_exr_depth(filepath: Path) -> np.ndarray:
     depth = depth.reshape((height, width))
     return depth
 
+
+# -----------------------------------------------------------------------------
+# Camera parameter helpers
+# -----------------------------------------------------------------------------
+
+def load_camera_params(scene_config_path: Path, camera_name: str):
+    """Return sensor size and focal length values for a named camera.
+
+    Returns
+    -------
+    tuple(float, float, float, float)
+        sensor_width_mm, sensor_height_mm, focal_length_x_mm, focal_length_y_mm
+    """
+    with open(scene_config_path, "r") as f:
+        data = json.load(f)
+
+    cams = data.get("cameras", {})
+    if camera_name not in cams:
+        available = ", ".join(cams.keys())
+        raise ValueError(
+            f"Camera '{camera_name}' not found in {scene_config_path}. Available: {available}"
+        )
+    cam = cams[camera_name]
+
+    sensor_w_mm = float(cam["sensor_mm"]["width"])
+    sensor_h_mm = float(cam["sensor_mm"]["height"])
+
+    focal_val = cam.get("focal_length_mm")
+    # `focal_length_mm` can be either a single float **or** a dict with axis keys.
+    if isinstance(focal_val, dict):
+        focal_mm = float(focal_val.get("x", next(iter(focal_val.values()))))
+    else:
+        focal_mm = float(focal_val)
+
+    focal_x_mm = focal_mm
+    focal_y_mm = focal_mm  # identical – avoids double-scaling
+
+    return sensor_w_mm, sensor_h_mm, focal_x_mm, focal_y_mm
+
 # -----------------------------------------------------------------------------
 # Annotation helpers
 # -----------------------------------------------------------------------------
 
-def annotate_image(img_bgr: np.ndarray, preds: list, depth: np.ndarray, font_scale: float) -> np.ndarray:
+def annotate_image(
+    img_bgr: np.ndarray,
+    preds: list,
+    depth: np.ndarray,
+    font_scale: float,
+    sensor_w_mm: float,
+    sensor_h_mm: float,
+    focal_x_mm: float,
+    focal_y_mm: float,
+) -> np.ndarray:
     """Draw bounding boxes, center dot and distance text for each prediction."""
     h, w = img_bgr.shape[:2]
     coords_texts = []
@@ -58,7 +108,14 @@ def annotate_image(img_bgr: np.ndarray, preds: list, depth: np.ndarray, font_sca
             continue  # skip predictions falling outside frame
         coords_texts.append(f"({cx}, {cy})")
 
-        distance = float(depth[cy, cx])
+                # Depth value gives distance along the camera ray; convert to true Euclidean distance
+        z_val = float(depth[cy, cx])  # metres
+        u = cx - w / 2.0
+        v = cy - h / 2.0
+        fx_px = focal_x_mm * w / sensor_w_mm
+        fy_px = focal_y_mm * h / sensor_h_mm
+        scale = math.sqrt(1.0 + (u / fx_px) ** 2 + (v / fy_px) ** 2)
+        distance = z_val * scale
         label = pred.get("class", "cow-head")
         text = f"{label} ({distance:.2f} m)"
 
@@ -146,6 +203,10 @@ def process_images(
     conf: float,
     iou_threshold: float,
     font_scale: float,
+    sensor_w_mm: float,
+    sensor_h_mm: float,
+    focal_x_mm: float,
+    focal_y_mm: float,
 ):
     client = InferenceHTTPClient(api_url=api_url, api_key=api_key)
     client.configure(InferenceConfiguration(confidence_threshold=conf, iou_threshold=iou_threshold))
@@ -165,7 +226,16 @@ def process_images(
 
         preds = client.infer(img_bgr, model_id=model_id).get("predictions", [])
         depth_map = read_exr_depth(depth_path)
-        annotated = annotate_image(img_bgr, preds, depth_map, font_scale)
+        annotated = annotate_image(
+            img_bgr,
+            preds,
+            depth_map,
+            font_scale,
+            sensor_w_mm,
+            sensor_h_mm,
+            focal_x_mm,
+            focal_y_mm,
+        )
 
         save_path = output_dir / img_path.name
         cv2.imwrite(str(save_path), annotated)
@@ -238,6 +308,15 @@ if __name__ == "__main__":
         model_name = model_id.replace("/", "_")
         out_dir = out_root / rel_path / f"{time_tag}_model={model_name}"
 
+    # ---------------------------------------------------------------------
+    # Load camera parameters for true Euclidean distance calculation
+    # ---------------------------------------------------------------------
+    scene_config_path = Path(cfg["scene_config_path"]).expanduser()
+    camera_name = cfg.get("camera_name", "Camera.front.upper")
+    sensor_w_mm, sensor_h_mm, focal_x_mm, focal_y_mm = load_camera_params(
+        scene_config_path, camera_name
+    )
+
     process_images(
         model_id=model_id,
         api_key=api_key,
@@ -248,4 +327,8 @@ if __name__ == "__main__":
         conf=conf,
         iou_threshold=iou_th,
         font_scale=font_scale,
+        sensor_w_mm=sensor_w_mm,
+        sensor_h_mm=sensor_h_mm,
+        focal_x_mm=focal_x_mm,
+        focal_y_mm=focal_y_mm,
     )

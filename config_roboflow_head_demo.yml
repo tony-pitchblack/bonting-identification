@@ -3,6 +3,9 @@
 # Input directories
 input_img_dir: "data/3d_cattle_demo/renders/cow_boxed/sliding_clip_120s_v3/case=default/render=image/front_upper/2025-08-04_203708"
 input_depth_dir: "data/3d_cattle_demo/renders/cow_boxed/sliding_clip_120s_v3/case=default/render=depth/front_upper/2025-08-05_173119"
+scene_config_path: "data/3d_cattle_demo/renders/cow_boxed/sliding_clip_120s_v3/scene_config.json"
+# Blender camera object to read parameters from (leave empty to use default)
+camera_name: "Camera.front.upper"
 
 # Model configuration
 model:
