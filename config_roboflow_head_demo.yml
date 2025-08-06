@@ -17,5 +17,5 @@ defaults:
 
 # Output configuration
 output:
-  base_dir: "data/bonting-identification/processed_images/tracking_heads"
+  base_dir: "data/bonting-identification/processed_videos/tracking_heads"
   remove_input_prefix: "data/"
