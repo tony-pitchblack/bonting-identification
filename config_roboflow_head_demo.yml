@@ -15,6 +15,7 @@ model:
 # Defaults
 defaults:
   font_size: 0.5
+  font_scale_multiplier: 1.2  # enlarge drawn text
   confidence_threshold: 0.85
   iou_threshold: 0.01
 

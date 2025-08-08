@@ -92,6 +92,7 @@ def annotate_image(
     sensor_h_mm: float,
     focal_x_mm: float,
     focal_y_mm: float,
+    camera_pitch_deg: float = 36.0,
 ) -> np.ndarray:
     """Draw bounding boxes, center dot and distance text for each prediction."""
     h, w = img_bgr.shape[:2]
@@ -116,8 +117,18 @@ def annotate_image(
         fy_px = focal_y_mm * h / sensor_h_mm
         scale = math.sqrt(1.0 + (u / fx_px) ** 2 + (v / fy_px) ** 2)
         distance = z_val * scale
+
+        # -----------------------------------------------------------------
+        # Compute projected distance onto room OX axis (horizontal ground plane)
+        # -----------------------------------------------------------------
+        yaw_rad = math.atan2(u, fx_px)
+        pitch_rad = math.atan2(-v, fy_px)  # negative v so upward is positive
+        ab = distance * math.cos(yaw_rad)
+        alpha_deg = 90.0 - (math.degrees(pitch_rad) + camera_pitch_deg)
+        dist_ox = ab * math.cos(math.radians(alpha_deg))
+
         label = pred.get("class", "cow-head")
-        text = f"{label} ({distance:.2f} m)"
+        text = f"{label} (Eu {distance:.2f}m) (OX {dist_ox:.2f}m)"
 
         cv2.rectangle(img_bgr, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.circle(img_bgr, (cx, cy), 4, (0, 0, 255), -1)
@@ -207,6 +218,7 @@ def process_images(
     sensor_h_mm: float,
     focal_x_mm: float,
     focal_y_mm: float,
+    camera_pitch_deg: float = 36.0,
 ):
     client = InferenceHTTPClient(api_url=api_url, api_key=api_key)
     client.configure(InferenceConfiguration(confidence_threshold=conf, iou_threshold=iou_threshold))
@@ -235,6 +247,7 @@ def process_images(
             sensor_h_mm,
             focal_x_mm,
             focal_y_mm,
+            camera_pitch_deg,
         )
 
         save_path = output_dir / img_path.name
@@ -283,7 +296,8 @@ if __name__ == "__main__":
     img_dir = Path(cfg["input_img_dir"]).expanduser()
     depth_dir = Path(cfg["input_depth_dir"]).expanduser()
 
-    font_scale = cfg["defaults"]["font_size"]
+    defaults_cfg = cfg.get("defaults", {})
+    font_scale = defaults_cfg.get("font_size", 0.5) * defaults_cfg.get("font_scale_multiplier", 1.2)
     conf = cfg["defaults"]["confidence_threshold"]
     iou_th = cfg["defaults"]["iou_threshold"]
 
@@ -317,6 +331,8 @@ if __name__ == "__main__":
         scene_config_path, camera_name
     )
 
+    camera_pitch_deg = cfg.get("camera_pitch_deg", 36.0)
+
     process_images(
         model_id=model_id,
         api_key=api_key,
@@ -331,4 +347,5 @@ if __name__ == "__main__":
         sensor_h_mm=sensor_h_mm,
         focal_x_mm=focal_x_mm,
         focal_y_mm=focal_y_mm,
+        camera_pitch_deg=camera_pitch_deg,
     )
