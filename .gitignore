@@ -2,6 +2,7 @@
 cookies.txt
 # data/
 ckpt/
+yolo*.pt
 runs/
 tmp/
 mlruns/
