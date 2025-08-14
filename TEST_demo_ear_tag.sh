@@ -14,4 +14,4 @@ fi
 if ! inference server status 2>&1 | grep -q 'Status: running'; then
   inference server start
 fi
-python roboflow_ocr_demo.py "$@" 
+python config_demo_tracking_ear_tag.py "$@" 

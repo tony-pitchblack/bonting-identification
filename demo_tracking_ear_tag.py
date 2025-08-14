@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-roboflow_ocr_demo.py
+config_demo_tracking_ear_tag.py
 
 1) Use Roboflow inference API to load YOLO model for object detection.
 2) For each detected bbox, run either TROCR, EasyOCR, or MindOCR on the cropped region.
@@ -8,7 +8,7 @@ roboflow_ocr_demo.py
 4) Save annotated output video.
 
 Configuration:
-- Script reads settings from config_roboflow_ocr_demo.yml by default
+- Script reads settings from config_config_demo_tracking_ear_tag.yml by default
 - Use --config to specify a different config file
 - Use --input-video to override the video path from config
 - Config includes video paths, model settings, OCR algorithms, and default parameters
@@ -68,7 +68,7 @@ def download_config(model_name, model_version):
     )
     return config_path
 
-def load_config(config_path: str = "config_roboflow_ocr_demo.yml") -> Dict[str, Any]:
+def load_config(config_path: str = "config_config_demo_tracking_ear_tag.yml") -> Dict[str, Any]:
     """Load configuration from YAML file."""
     try:
         with open(config_path, 'r') as f:
@@ -405,7 +405,7 @@ def create_test_video(output_path: str, duration: int = 5, font_size: float = 1.
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run Roboflow inference with OCR on video")
-    parser.add_argument("--config", type=str, default="config_roboflow_ocr_demo.yml", help="Path to YAML configuration file")
+    parser.add_argument("--config", type=str, default="config_config_demo_tracking_ear_tag.yml", help="Path to YAML configuration file")
     parser.add_argument("--input-video", type=str, help="Input video path (overrides config file)")
     parser.add_argument("--duration", type=str, default=None, help="Duration limit: None (1 frame), 'full' (all frames), or float (seconds)")
     parser.add_argument("--font-size", type=float, default=CONFIG['defaults']['font_size'], help="Font size scale for annotation text (default: from config)")

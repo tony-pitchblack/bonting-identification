@@ -287,7 +287,7 @@ def load_config(config_path: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cow head detection on image directory with depth")
-    parser.add_argument("--config", type=str, default="config_roboflow_head_demo.yml", help="Path to YAML configuration file")
+    parser.add_argument("--config", type=str, default="config_demo_head_tracking.yml", help="Path to YAML configuration file")
     parser.add_argument("--output-dir", type=str, default=None, help="Override output directory")
     args = parser.parse_args()
 
