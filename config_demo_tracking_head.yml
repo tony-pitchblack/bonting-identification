@@ -7,16 +7,30 @@ scene_config_path: "data/3d_cattle_demo/renders/cow_boxed/sliding_clip_120s_v3/s
 # Blender camera object to read parameters from (leave empty to use default)
 camera_name: "Camera.front.upper"
 
-# Model configuration
-model:
+# Model selection
+# model_framework can be one of: 'roboflow', 'mlflow'
+# 'model' is deprecated; kept for backward compatibility when model_framework is omitted
+# model_framework: "roboflow"
+model_framework: "mlflow"
+
+# Roboflow configuration (used when model_framework == 'roboflow')
+model_roboflow:
   model_id: "cow-heads-varied-heoza/2"
   api_url: "http://127.0.0.1:9001"
+
+# MLflow configuration (used when model_framework == 'mlflow')
+# When model_type == 'ultralytics' the script will use the 'ultralytics' YOLO package
+# Note: tracking URI is sourced from environment variable MLFLOW_TRACKING_URI (.env), not from config
+model_mlflow:
+  model_name: "yolo12_cow_head"
+  model_version: null  # if null, latest version is selected
+  model_type: "ultralytics"
 
 # Defaults
 defaults:
   font_size: 0.5
   font_scale_multiplier: 1.2  # enlarge drawn text
-  confidence_threshold: 0.85
+  confidence_threshold: 0.01
   iou_threshold: 0.01
 
 # Output configuration

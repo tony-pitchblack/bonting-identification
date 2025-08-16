@@ -12,6 +12,7 @@ import numpy as np
 import OpenEXR
 import Imath
 import array
+import shutil
 from tqdm import tqdm
 import json
 import math
@@ -19,6 +20,7 @@ import yaml
 from inference_sdk import InferenceHTTPClient, InferenceConfiguration
 from dotenv import load_dotenv
 from datetime import datetime
+from typing import Callable, Optional, List, Dict
 
 # -----------------------------------------------------------------------------
 # Depth handling
@@ -219,9 +221,12 @@ def process_images(
     focal_x_mm: float,
     focal_y_mm: float,
     camera_pitch_deg: float = 36.0,
+    predict_fn: Optional[Callable[[np.ndarray], List[Dict]]] = None,
 ):
-    client = InferenceHTTPClient(api_url=api_url, api_key=api_key)
-    client.configure(InferenceConfiguration(confidence_threshold=conf, iou_threshold=iou_threshold))
+    client = None
+    if predict_fn is None:
+        client = InferenceHTTPClient(api_url=api_url, api_key=api_key)
+        client.configure(InferenceConfiguration(confidence_threshold=conf, iou_threshold=iou_threshold))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     img_paths = sorted(img_dir.glob("*.png"))
@@ -236,7 +241,10 @@ def process_images(
         if img_bgr is None:
             continue
 
-        preds = client.infer(img_bgr, model_id=model_id).get("predictions", [])
+        if predict_fn is None:
+            preds = client.infer(img_bgr, model_id=model_id).get("predictions", [])
+        else:
+            preds = predict_fn(img_bgr)
         depth_map = read_exr_depth(depth_path)
         annotated = annotate_image(
             img_bgr,
@@ -287,9 +295,12 @@ def load_config(config_path: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cow head detection on image directory with depth")
-    parser.add_argument("--config", type=str, default="config_demo_head_tracking.yml", help="Path to YAML configuration file")
+    parser.add_argument("--config", type=str, default="config_demo_tracking_head.yml", help="Path to YAML configuration file")
     parser.add_argument("--output-dir", type=str, default=None, help="Override output directory")
     args = parser.parse_args()
+
+    # Load environment variables from .env before any env usage (e.g., MLFLOW_TRACKING_URI)
+    load_dotenv()
 
     cfg = load_config(args.config)
 
@@ -301,12 +312,97 @@ if __name__ == "__main__":
     conf = cfg["defaults"]["confidence_threshold"]
     iou_th = cfg["defaults"]["iou_threshold"]
 
-    model_id = cfg["model"]["model_id"]
-    api_url = cfg["model"]["api_url"]
+    # ---------------------------------------------------------------------
+    # Model selection (supports roboflow and mlflow with ultralytics YOLO)
+    # ---------------------------------------------------------------------
+    model_framework = cfg.get("model_framework")
+    model_id = ""
+    api_url = ""
+    predict_fn: Optional[Callable[[np.ndarray], List[Dict]]] = None
+    output_model_name: str = ""
 
-    load_dotenv()
-    api_key = os.getenv("ROBOFLOW_API_KEY")
-    if not api_key:
+    # Backwards compatibility for deprecated 'model' key
+    if not model_framework:
+        if "model" in cfg:
+            model_framework = "roboflow"
+        else:
+            raise ValueError("model_framework must be one of 'roboflow', 'mlflow', or None (deprecated)")
+
+    if model_framework == "roboflow":
+        model_cfg = cfg.get("model_roboflow", cfg.get("model", {}))
+        model_id = model_cfg["model_id"]
+        api_url = model_cfg["api_url"]
+        output_model_name = model_id
+    elif model_framework == "mlflow":
+        mlflow_cfg = cfg.get("model_mlflow", {})
+        model_type = mlflow_cfg.get("model_type")
+        if model_type == "ultralytics":
+            # Lazy import to avoid hard dependency when not used
+            import mlflow
+            from mlflow.tracking import MlflowClient
+            from utils.mlflow_flavours import YoloUltralyticsFlavor
+
+            env_tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+            if env_tracking_uri:
+                mlflow.set_tracking_uri(env_tracking_uri)
+            client = MlflowClient()
+            reg_name = mlflow_cfg["model_name"]
+            specified_version = mlflow_cfg.get("model_version")
+
+            if specified_version:
+                version_str = str(specified_version)
+            else:
+                versions = client.search_model_versions(f"name='{reg_name}'")
+                if not versions:
+                    raise ValueError(f"No versions found for MLflow model '{reg_name}'")
+                version_str = str(max(int(mv.version) for mv in versions))
+
+            model_uri = f"models:/{reg_name}/{version_str}"
+            yolo_model = YoloUltralyticsFlavor.load_model(model_uri)
+
+            output_model_name = f"{reg_name}_v{version_str}"
+
+            label_map = yolo_model.names if hasattr(yolo_model, "names") else {}
+
+            def _predict_ultralytics(img_bgr: np.ndarray) -> List[Dict]:
+                results = yolo_model.predict(img_bgr, conf=conf, iou=iou_th, verbose=False)
+                if not results:
+                    return []
+                r = results[0]
+                preds_list: List[Dict] = []
+                if not hasattr(r, "boxes") or r.boxes is None:
+                    return preds_list
+                boxes = r.boxes
+                xyxy = boxes.xyxy.cpu().numpy() if hasattr(boxes.xyxy, "cpu") else boxes.xyxy
+                cls = boxes.cls.cpu().numpy() if hasattr(boxes.cls, "cpu") else boxes.cls
+                confs = boxes.conf.cpu().numpy() if hasattr(boxes.conf, "cpu") else boxes.conf
+                for i in range(len(xyxy)):
+                    x1, y1, x2, y2 = xyxy[i]
+                    w = float(x2 - x1)
+                    h = float(y2 - y1)
+                    cx = float(x1 + w / 2.0)
+                    cy = float(y1 + h / 2.0)
+                    cls_id = int(cls[i]) if cls is not None else 0
+                    label = label_map.get(cls_id, str(cls_id)) if isinstance(label_map, dict) else str(cls_id)
+                    conf_val = float(confs[i]) if confs is not None else 0.0
+                    preds_list.append({
+                        "x": cx,
+                        "y": cy,
+                        "width": w,
+                        "height": h,
+                        "class": label,
+                        "confidence": conf_val,
+                    })
+                return preds_list
+
+            predict_fn = _predict_ultralytics
+        else:
+            raise ValueError("Unsupported model_type for mlflow. Expected 'ultralytics'.")
+    else:
+        raise ValueError("model_framework must be one of 'roboflow' or 'mlflow'")
+
+    api_key = os.getenv("ROBOFLOW_API_KEY", "")
+    if model_framework == "roboflow" and not api_key:
         raise ValueError("ROBOFLOW_API_KEY environment variable not set")
 
     if args.output_dir:
@@ -319,8 +415,16 @@ if __name__ == "__main__":
             rel_path = rel_path.split(remove_prefix, 1)[1]
         rel_path = rel_path.lstrip("/")
         out_root = Path(cfg["output"]["base_dir"])
-        model_name = model_id.replace("/", "_")
+        model_tag_source = output_model_name or model_id or "unknown"
+        model_name = model_tag_source.replace("/", "_")
         out_dir = out_root / rel_path / f"{time_tag}_model={model_name}"
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        cfg_copy_path = out_dir / Path(args.config).name
+        shutil.copy2(args.config, cfg_copy_path)
+    except Exception:
+        pass
 
     # ---------------------------------------------------------------------
     # Load camera parameters for true Euclidean distance calculation
@@ -348,4 +452,5 @@ if __name__ == "__main__":
         focal_x_mm=focal_x_mm,
         focal_y_mm=focal_y_mm,
         camera_pitch_deg=camera_pitch_deg,
+        predict_fn=predict_fn,
     )
